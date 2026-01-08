@@ -68,3 +68,73 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKER_IMAGE }}
           readme-filepath: ./README.md
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-push
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get previous tag
+        id: previoustag
+        run: |
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${GITHUB_REF#refs/tags/}$" | head -n 1)
+          echo "tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          PREVIOUS_TAG=${{ steps.previoustag.outputs.tag }}
+
+          # Get commit messages since last tag
+          if [ -n "$PREVIOUS_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" ${PREVIOUS_TAG}..${TAG_NAME})
+          else
+            COMMITS=$(git log --pretty=format:"- %s" ${TAG_NAME})
+          fi
+
+          # Create release notes
+          cat > release_notes.md <<EOF
+          ## What's Changed
+
+          ${COMMITS}
+
+          ## 🚀 Quick Start
+
+          \`\`\`yaml
+          services:
+            dockpilot:
+              image: serversathome/dockpilot:${TAG_NAME}
+              container_name: dockpilot
+              restart: unless-stopped
+              ports:
+                - "5000:5000"
+              volumes:
+                - /var/run/docker.sock:/var/run/docker.sock:ro
+                - ./stacks:/stacks
+                - ./data:/app/backend/config/data
+              environment:
+                - NODE_ENV=production
+                - PORT=5000
+                - STACKS_DIR=/stacks
+          \`\`\`
+
+          ---
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
