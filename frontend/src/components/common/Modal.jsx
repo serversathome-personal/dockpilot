@@ -70,7 +70,7 @@ export default function Modal({
                 )}
 
                 {/* Content */}
-                <div className="px-6 py-4">
+                <div className="p-1">
                   {children}
                 </div>
               </Dialog.Panel>

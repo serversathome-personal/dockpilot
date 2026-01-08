@@ -1200,7 +1200,7 @@ KEY2=value2
         {selectedStack && (
           <div className="space-y-4">
             {/* Stack Info */}
-            <div className="glass-card p-4">
+            <div className="glass-card p-2">
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-slate-400">Status</p>
@@ -1481,7 +1481,7 @@ KEY2=value2
                       Refresh
                     </Button>
                   </div>
-                  <div className="glass-card bg-black/50 p-4 rounded-lg overflow-auto max-h-[400px]">
+                  <div className="glass-card bg-black/50 p-2 rounded-lg overflow-auto max-h-[400px]">
                     <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap">
                       {logs || 'No logs available'}
                     </pre>

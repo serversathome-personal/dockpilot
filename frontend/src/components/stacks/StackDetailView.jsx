@@ -600,7 +600,7 @@ export default function StackDetailView() {
             )}
           </div>
         </div>
-        <div className="p-3">
+        <div className="p-1">
           <CodeMirror
             value={composeContent}
             onChange={(value) => setComposeContent(value)}
@@ -651,7 +651,7 @@ export default function StackDetailView() {
             )}
           </div>
         </div>
-        <div className="p-3">
+        <div className="p-1">
           {!isEditingEnv && Object.keys(envVars).length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               No environment variables defined
@@ -701,7 +701,7 @@ ANOTHER_KEY=another_value
             Refresh Logs
           </Button>
         </div>
-        <div className="p-3">
+        <div className="p-1">
           <pre
             ref={logsContentRef}
             className="bg-black/50 rounded-lg p-4 overflow-x-auto text-xs font-mono min-h-[400px] max-h-[600px] overflow-y-auto whitespace-pre-wrap"
