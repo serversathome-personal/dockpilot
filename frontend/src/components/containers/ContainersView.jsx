@@ -39,6 +39,7 @@ export default function ContainersView() {
   const [updateOutput, setUpdateOutput] = useState('');
   const [updateContainerName, setUpdateContainerName] = useState('');
   const updateContentRef = useRef(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadContainers();
@@ -460,10 +461,19 @@ export default function ContainersView() {
     setActiveTab('overview');
   };
 
-  // Filter containers based on showAll toggle
-  const filteredContainers = showAll
-    ? containers
-    : containers.filter((c) => c.state?.toLowerCase() === 'running');
+  // Filter containers based on showAll toggle and search term
+  const filteredContainers = containers
+    .filter((c) => showAll || c.state?.toLowerCase() === 'running')
+    .filter((c) => {
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        c.name?.toLowerCase().includes(search) ||
+        c.image?.toLowerCase().includes(search) ||
+        c.state?.toLowerCase().includes(search) ||
+        c.status?.toLowerCase().includes(search)
+      );
+    });
 
   if (isLoading && containers.length === 0) {
     return (
@@ -497,6 +507,17 @@ export default function ContainersView() {
             Refresh
           </Button>
         </div>
+      </div>
+
+      {/* Search Bar */}
+      <div className="flex items-center">
+        <input
+          type="text"
+          placeholder="Search containers by name, image, or status..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 px-4 py-2 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        />
       </div>
 
       <Table columns={columns} data={filteredContainers} onRowClick={(container) => navigate(`/containers/${container.id}`)} />

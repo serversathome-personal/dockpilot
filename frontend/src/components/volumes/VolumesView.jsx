@@ -18,6 +18,7 @@ export default function VolumesView() {
     name: '',
     driver: 'local',
   });
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadVolumes();
@@ -29,7 +30,11 @@ export default function VolumesView() {
     try {
       setLoading(true);
       const data = await volumesAPI.list();
-      setVolumes(data.data || []);
+      // Sort volumes by name to prevent rearranging
+      const sortedVolumes = (data.data || []).sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+      setVolumes(sortedVolumes);
     } catch (error) {
       console.error('Failed to load volumes:', error);
       addNotification({
@@ -135,8 +140,8 @@ export default function VolumesView() {
       label: 'Mount Point',
       sortable: true,
       render: (mountpoint) => (
-        <span className="font-mono text-xs text-slate-300">
-          {mountpoint.length > 50 ? '...' + mountpoint.substring(mountpoint.length - 47) : mountpoint}
+        <span className="font-mono text-xs text-slate-300 break-all">
+          {mountpoint}
         </span>
       ),
     },
@@ -216,7 +221,25 @@ export default function VolumesView() {
         </div>
       </div>
 
-      <Table columns={columns} data={volumes} />
+      {/* Search Bar */}
+      <div className="flex items-center">
+        <input
+          type="text"
+          placeholder="Search volumes by name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 px-4 py-2 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        />
+      </div>
+
+      <Table
+        columns={columns}
+        data={volumes.filter((vol) => {
+          if (!searchTerm) return true;
+          const search = searchTerm.toLowerCase();
+          return vol.name?.toLowerCase().includes(search);
+        })}
+      />
 
       {/* Create Volume Modal */}
       <Modal

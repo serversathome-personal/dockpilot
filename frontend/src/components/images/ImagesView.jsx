@@ -16,6 +16,7 @@ export default function ImagesView() {
   const [showPullModal, setShowPullModal] = useState(false);
   const [pullImageName, setPullImageName] = useState('');
   const [isPulling, setIsPulling] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadImages();
@@ -228,7 +229,29 @@ export default function ImagesView() {
         </div>
       </div>
 
-      <Table columns={columns} data={images} />
+      {/* Search Bar */}
+      <div className="flex items-center">
+        <input
+          type="text"
+          placeholder="Search images by repository or tag..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 px-4 py-2 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        />
+      </div>
+
+      <Table
+        columns={columns}
+        data={images.filter((img) => {
+          if (!searchTerm) return true;
+          const search = searchTerm.toLowerCase();
+          return (
+            img.repository?.toLowerCase().includes(search) ||
+            img.tag?.toLowerCase().includes(search) ||
+            img.tags?.some(t => t.toLowerCase().includes(search))
+          );
+        })}
+      />
 
       {/* Delete Confirmation Modal */}
       <Modal

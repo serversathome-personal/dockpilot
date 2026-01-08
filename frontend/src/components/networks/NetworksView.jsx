@@ -19,6 +19,7 @@ export default function NetworksView() {
     name: '',
     driver: 'bridge',
   });
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadNetworks();
@@ -259,7 +260,29 @@ export default function NetworksView() {
         </div>
       </div>
 
-      <Table columns={columns} data={networks} onRowClick={handleShowDetails} />
+      {/* Search Bar */}
+      <div className="flex items-center">
+        <input
+          type="text"
+          placeholder="Search networks by name or driver..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1 px-4 py-2 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        />
+      </div>
+
+      <Table
+        columns={columns}
+        data={networks.filter((net) => {
+          if (!searchTerm) return true;
+          const search = searchTerm.toLowerCase();
+          return (
+            net.name?.toLowerCase().includes(search) ||
+            net.driver?.toLowerCase().includes(search)
+          );
+        })}
+        onRowClick={handleShowDetails}
+      />
 
       {/* Create Network Modal */}
       <Modal
