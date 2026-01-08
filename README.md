@@ -81,7 +81,7 @@ services:
       - "5000:5000"    # Web UI and API (frontend served by backend)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker socket (read-only)
-      - ./stacks:/stacks                              # Stack storage
+      - ./stacks:/stacks                              # Stack storage; left side MUST MATCH right side!
       - ./data:/app/backend/config/data               # Application data
     environment:
       - NODE_ENV=production
