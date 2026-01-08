@@ -50,6 +50,9 @@ export default function StacksView() {
   const [newStackName, setNewStackName] = useState('');
   const [newStackCompose, setNewStackCompose] = useState('version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"\n');
   const [newStackEnvVars, setNewStackEnvVars] = useState('');
+  const [newStackPUID, setNewStackPUID] = useState('1000');
+  const [newStackPGID, setNewStackPGID] = useState('1000');
+  const [includeUserGroup, setIncludeUserGroup] = useState(false);
 
   // Detail view state
   const [activeTab, setActiveTab] = useState('compose');
@@ -141,6 +144,12 @@ export default function StacksView() {
             }
           }
         }
+      }
+
+      // Add PUID/PGID if user/group is enabled
+      if (includeUserGroup) {
+        if (newStackPUID) envVarsObject['PUID'] = newStackPUID;
+        if (newStackPGID) envVarsObject['PGID'] = newStackPGID;
       }
 
       await stacksAPI.create({
@@ -861,14 +870,25 @@ export default function StacksView() {
       </div>
 
       {/* Search Bar */}
-      <div className="flex items-center">
+      <div className="flex items-center relative">
         <input
           type="text"
           placeholder="Search stacks by name or status..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-4 py-2 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="flex-1 px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
         />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="absolute right-3 text-slate-400 hover:text-white transition-colors"
+            title="Clear search"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <Table
@@ -892,6 +912,9 @@ export default function StacksView() {
           setNewStackName('');
           setNewStackCompose('version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"\n');
           setNewStackEnvVars('');
+          setNewStackPUID('1000');
+          setNewStackPGID('1000');
+          setIncludeUserGroup(false);
         }}
         title="Create New Stack"
         size="xl"
@@ -939,6 +962,56 @@ services:
   app:
     image: nginx:latest"
             />
+            <p className="mt-2 text-xs text-slate-400">
+              <strong>Important:</strong> When using bind mounts in volumes, use the HOST system paths, not DockPilot container paths.
+              If DockPilot mounts <code className="bg-black/30 px-1 rounded">/mnt/tank/stacks</code> as <code className="bg-black/30 px-1 rounded">/stacks</code>,
+              use <code className="bg-black/30 px-1 rounded">/mnt/tank/stacks/...</code> in your compose file.
+            </p>
+          </div>
+
+          {/* User and Group Settings */}
+          <div className="border-t border-glass-border pt-4">
+            <label className="flex items-center space-x-2 text-sm text-slate-300 mb-3">
+              <input
+                type="checkbox"
+                checked={includeUserGroup}
+                onChange={(e) => setIncludeUserGroup(e.target.checked)}
+                className="rounded border-glass-border bg-glass-darker text-primary focus:ring-primary focus:ring-offset-0"
+              />
+              <span>Set User and Group (PUID/PGID)</span>
+            </label>
+
+            {includeUserGroup && (
+              <div className="grid grid-cols-2 gap-4 pl-6">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    PUID (User ID)
+                  </label>
+                  <input
+                    type="text"
+                    value={newStackPUID}
+                    onChange={(e) => setNewStackPUID(e.target.value)}
+                    placeholder="1000"
+                    className="glass-input w-full text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    PGID (Group ID)
+                  </label>
+                  <input
+                    type="text"
+                    value={newStackPGID}
+                    onChange={(e) => setNewStackPGID(e.target.value)}
+                    placeholder="1000"
+                    className="glass-input w-full text-sm"
+                  />
+                </div>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-slate-400">
+              Commonly used for LinuxServer.io containers and running as a specific user.
+            </p>
           </div>
 
           <div>
@@ -977,6 +1050,9 @@ KEY2=value2
                 setNewStackName('');
                 setNewStackCompose('version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"\n');
                 setNewStackEnvVars('');
+                setNewStackPUID('1000');
+                setNewStackPGID('1000');
+                setIncludeUserGroup(false);
               }}
             >
               Cancel
