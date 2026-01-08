@@ -69,8 +69,6 @@
 1. Create a `docker-compose.yml` file:
 
 ```yaml
-version: '3.8'
-
 services:
   dockpilot:
     image: serversathome/dockpilot:latest
