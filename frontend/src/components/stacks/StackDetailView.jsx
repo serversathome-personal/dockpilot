@@ -255,7 +255,7 @@ export default function StackDetailView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -581,7 +581,7 @@ export default function StackDetailView() {
 
       {/* Compose File Section */}
       <Card>
-        <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
+        <div className="px-6 py-2 border-b border-glass-border flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Compose File</h3>
           <div className="flex space-x-2">
             {isEditingCompose ? (
@@ -618,14 +618,15 @@ export default function StackDetailView() {
               borderRadius: '8px',
               overflow: 'hidden',
             }}
-            minHeight="400px"
+            minHeight="200px"
+            maxHeight="500px"
           />
         </div>
       </Card>
 
       {/* Environment Variables Section */}
       <Card>
-        <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
+        <div className="px-6 py-2 border-b border-glass-border flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Environment Variables</h3>
           <div className="flex space-x-2">
             {isEditingEnv ? (
@@ -673,7 +674,8 @@ export default function StackDetailView() {
                   borderRadius: '8px',
                   overflow: 'hidden',
                 }}
-                minHeight="200px"
+                minHeight="150px"
+                maxHeight="400px"
                 placeholder="KEY=value
 ANOTHER_KEY=another_value
 # Comments are supported"
@@ -690,7 +692,7 @@ ANOTHER_KEY=another_value
 
       {/* Logs Section */}
       <Card ref={logsRef}>
-        <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
+        <div className="px-6 py-2 border-b border-glass-border flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <h3 className="text-lg font-semibold text-white">Logs</h3>
             {isOperationInProgress && (
