@@ -7,9 +7,9 @@ PGID=${PGID:-0}
 
 echo "Starting DockPilot with UID: $PUID, GID: $PGID"
 
-# If running as root (default), we don't need to do anything special
-if [ "$PUID" -eq 0 ] && [ "$PGID" -eq 0 ]; then
-    echo "Running as root user"
+# If PUID is 0, always run as root (can't create a user with UID 0)
+if [ "$PUID" -eq 0 ]; then
+    echo "Running as root user (PUID=0)"
     exec "$@"
 fi
 
