@@ -946,7 +946,9 @@ export default function StacksView() {
                 highlightActiveLineGutter: true,
                 highlightActiveLine: true,
                 foldGutter: true,
+                indentOnInput: false,
               }}
+              indentWithTab={false}
               style={{
                 fontSize: '14px',
                 borderRadius: '8px',
@@ -966,7 +968,7 @@ services:
                 Environment Variables
               </label>
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 onClick={() => {
                   // Extract environment variables from compose file
