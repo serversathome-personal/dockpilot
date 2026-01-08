@@ -1,37 +1,68 @@
-# Docker Management GUI
+# DockPilot
 
-A modern, web-based graphical user interface for managing Docker containers and stacks. Built with React, TypeScript, and Node.js, this application provides an intuitive alternative to Portainer for Docker management.
+<p align="center">
+  <img src="dockpilot.png" alt="DockPilot Logo" width="200"/>
+</p>
 
-## Features
+**DockPilot** is a modern Docker management UI that combines Dockge's file-based architecture with Portainer's comprehensive feature set. Built with React and Node.js, it provides an intuitive web interface for managing Docker containers, stacks, images, networks, and volumes.
 
-- **Container Management**
-  - View, start, stop, restart, and remove containers
-  - Real-time container logs with search and filtering
-  - Container statistics and resource usage monitoring
-  - Execute commands in running containers
+## ✨ Features
 
-- **Stack Management**
-  - Deploy and manage Docker Compose stacks
-  - Upload, edit, and validate docker-compose.yml files
-  - Start, stop, and remove entire stacks
-  - Environment variable management
+### 📊 Dashboard
+- Real-time host system metrics (CPU, memory, disk usage)
+- Docker resource overview (containers, stacks, images, networks, volumes)
+- 30-minute usage history charts
+- Quick navigation to all resources
 
-- **Image Management**
-  - List and remove Docker images
-  - Pull images from registries
-  - View image details and layers
+### 📦 Stack Management
+- File-based stack storage (Dockge architecture)
+- Docker Compose support with inline editing
+- Real-time streaming output for all operations
+- Environment variable management
+- Clone from Git repositories
+- Convert Docker run commands to compose files
+- Aggregate logs from all stack containers
 
-- **System Information**
-  - Docker system information and version
-  - Resource usage overview
-  - Disk space monitoring
+### 🐳 Container Management
+- View all containers (running and stopped)
+- Start, stop, restart, pause/unpause, remove
+- Update container images with streaming output
+- Real-time logs with auto-refresh
+- Resource usage statistics
+- Port mapping with clickable links
 
-- **Modern UI**
-  - Clean, responsive interface built with React and Tailwind CSS
-  - Real-time updates using Server-Sent Events
-  - Dark mode support
+### 🖼️ Image Management
+- List all Docker images
+- Pull latest images
+- Remove unused images
+- Prune dangling images
+- Size and tag information
 
-## Quick Start
+### 🔌 Network Management
+- View all Docker networks
+- Create and remove networks
+- See connected containers
+- IPv4 and IPv6 support
+
+### 💾 Volume Management
+- List all volumes
+- Remove unused volumes
+- Mount point information
+
+### 🔄 Update Management
+- Check for image updates
+- Schedule automatic updates
+- Update history tracking
+- Selective image updates
+
+### 🎨 Modern UI
+- Dark theme with smoked glass effects
+- Responsive design
+- Real-time streaming for long operations
+- Auto-scrolling logs
+- Sortable tables
+
+## 🚀 Quick Start
 
 ### Using Docker Compose (Recommended)
 
@@ -41,175 +72,192 @@ A modern, web-based graphical user interface for managing Docker containers and 
 version: '3.8'
 
 services:
-  docker-management-gui:
-    image: yourusername/docker-management-gui:latest
-    container_name: docker-management-gui
+  dockpilot:
+    image: serversathome/dockpilot:latest
+    container_name: dockpilot
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "5000:5000"    # Backend API
+      - "3000:3000"    # Frontend UI
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./stacks:/stacks
-      - docker-gui-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker socket (read-only)
+      - ./stacks:/stacks                              # Stack storage
+      - ./data:/app/backend/config/data               # Application data
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=5000
       - STACKS_DIR=/stacks
-
-volumes:
-  docker-gui-data:
 ```
 
-2. Start the application:
+2. Start DockPilot:
 
 ```bash
 docker-compose up -d
 ```
 
-3. Access the GUI at `http://localhost:3000`
+3. Access the UI at `http://localhost:3000`
 
-### Using Docker Run
+### Docker Run
 
 ```bash
 docker run -d \
-  --name docker-management-gui \
+  --name dockpilot \
+  -p 5000:5000 \
   -p 3000:3000 \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v $(pwd)/stacks:/stacks \
+  -v $(pwd)/data:/app/backend/config/data \
   -e NODE_ENV=production \
-  -e PORT=3000 \
+  -e PORT=5000 \
   -e STACKS_DIR=/stacks \
-  yourusername/docker-management-gui:latest
+  serversathome/dockpilot:latest
 ```
 
-## Development Setup
+## 📁 Directory Structure
+
+```
+/stacks/          # Docker Compose stacks (one folder per stack)
+  /stack-name/
+    docker-compose.yml
+    .env
+/data/            # Application configuration and data
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NODE_ENV` | `development` | Environment mode |
+| `PORT` | `5000` | Backend API port |
+| `FRONTEND_PORT` | `3000` | Frontend port |
+| `STACKS_DIR` | `/stacks` | Stack storage directory |
+| `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket path |
+
+## 🏗️ Architecture
+
+### File-Based Stacks (Dockge-style)
+- Each stack is a folder in `/stacks/`
+- Folder name = stack name
+- Contains `docker-compose.yml` and optional `.env`
+- All stacks are readable/manageable regardless of creation method
+- Supports external interoperability
+
+### Backend
+- Node.js + Express
+- Docker API integration
+- Server-Sent Events for streaming
+- File-based configuration storage
+
+### Frontend
+- React + Vite
+- Tailwind CSS with custom glass theme
+- Zustand for state management
+- Real-time updates via SSE
+
+## 🔐 Security Notes
+
+- Docker socket is mounted read-only by default
+- No built-in authentication (use reverse proxy for production)
+- Consider using Docker socket proxy for enhanced security
+- Runs as root inside container (required for Docker access)
+
+## 🛠️ Development
 
 ### Prerequisites
+- Node.js 18+
+- Docker
+- npm or yarn
 
-- Node.js 20.x or higher
-- npm 10.x or higher
-- Docker and Docker Compose
-
-### Installation
+### Setup
 
 1. Clone the repository:
-
 ```bash
-git clone https://github.com/yourusername/docker-management-gui.git
-cd docker-management-gui
+git clone https://github.com/serversathome/dockpilot.git
+cd dockpilot
 ```
 
 2. Install dependencies:
-
 ```bash
 npm install
 ```
 
 3. Start development servers:
-
 ```bash
 npm run dev
 ```
 
-This will start both the backend (port 3000) and frontend (port 5173) in development mode with hot reload.
+This starts:
+- Backend API on `http://localhost:5000`
+- Frontend UI on `http://localhost:3000`
 
-### Alternative: Development with Docker
-
-```bash
-npm run docker:dev
-```
-
-This uses Docker Compose to run the development environment in containers.
-
-### Building
-
-Build both frontend and backend:
-
-```bash
-npm run build
-```
-
-Build Docker image:
-
-```bash
-npm run docker:build
-```
-
-## Environment Variables
-
-### Backend
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment (development/production) | `development` |
-| `PORT` | Server port | `3000` |
-| `STACKS_DIR` | Directory for storing stacks | `/stacks` |
-| `DOCKER_HOST` | Docker daemon socket | `unix:///var/run/docker.sock` |
-| `AUTH_ENABLED` | Enable authentication | `false` |
-| `JWT_SECRET` | Secret key for JWT tokens | - |
-
-### Frontend
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VITE_API_URL` | Backend API URL | `http://localhost:3000` |
-
-## Project Structure
+### Project Structure
 
 ```
-docker-management-gui/
-├── backend/                 # Backend Node.js application
+dockpilot/
+├── backend/           # Node.js API server
 │   ├── src/
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Business logic
-│   │   ├── middleware/     # Express middleware
-│   │   └── index.ts        # Entry point
+│   │   ├── api/      # REST API routes
+│   │   ├── services/ # Business logic
+│   │   ├── middleware/
+│   │   └── websocket/
 │   └── package.json
-├── frontend/               # Frontend React application
+├── frontend/          # React UI
 │   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/          # Page components
-│   │   ├── hooks/          # Custom hooks
-│   │   ├── services/       # API services
-│   │   └── App.tsx         # Root component
+│   │   ├── components/
+│   │   ├── api/      # API client
+│   │   ├── store/    # Zustand stores
+│   │   └── utils/
 │   └── package.json
-├── docker/                 # Docker configuration
-│   ├── Dockerfile          # Production Dockerfile
-│   └── docker-compose.dev.yml  # Development compose
-├── .github/
-│   └── workflows/          # GitHub Actions CI/CD
-├── docker-compose.yml      # Production deployment
-└── package.json            # Root workspace config
+├── docker/           # Docker build files
+│   ├── Dockerfile
+│   └── entrypoint.sh
+└── stacks/           # Stack storage
 ```
 
-## Security Considerations
+## 🤝 Contributing
 
-- The application requires access to the Docker socket (`/var/run/docker.sock`), which grants full control over Docker
-- It's recommended to run this application in a trusted environment only
-- Consider enabling authentication for production deployments
-- Use read-only mount for Docker socket when possible (`:ro`)
-- Regularly update dependencies to patch security vulnerabilities
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Contributing
+## 📝 License
 
-Contributions are welcome! Please follow these steps:
+MIT License - see LICENSE file for details
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## 🙏 Acknowledgments
 
-## License
+- Inspired by [Dockge](https://github.com/louislam/dockge) for file-based architecture
+- UI design inspired by [Portainer](https://github.com/portainer/portainer)
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 📸 Screenshots
 
-## Acknowledgments
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
 
-- Inspired by Portainer and other Docker management tools
-- Built with modern web technologies and best practices
-- Community feedback and contributions
+### Stack Management
+![Stacks](screenshots/stacks.png)
 
-## Support
+### Container Management
+![Containers](screenshots/containers.png)
 
-For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/yourusername/docker-management-gui).
+## 🐛 Known Issues
+
+- None currently
+
+## 🗺️ Roadmap
+
+- [ ] Multi-host support
+- [ ] User authentication
+- [ ] RBAC support
+- [ ] Backup/restore functionality
+- [ ] Template marketplace
+- [ ] Webhook notifications
+
+## 📞 Support
+
+- GitHub Issues: [Report a bug](https://github.com/serversathome/dockpilot/issues)
+- Discussions: [Ask a question](https://github.com/serversathome/dockpilot/discussions)
+
+---
+
+Made with ❤️ by [serversathome](https://github.com/serversathome)
