@@ -1198,7 +1198,7 @@ KEY2=value2
         size="xl"
       >
         {selectedStack && (
-          <div className="space-y-4">
+          <div className="space-y-1">
             {/* Stack Info */}
             <div className="glass-card p-2">
               <div className="grid grid-cols-3 gap-4">
@@ -1345,7 +1345,7 @@ KEY2=value2
             {/* Tab Content */}
             <div className="min-h-[400px]">
               {activeTab === 'compose' && (
-                <div className="space-y-4">
+                <div className="space-y-1">
                   <div className="flex justify-between items-center">
                     <p className="text-sm text-slate-400">
                       Edit your docker-compose.yml configuration
@@ -1389,7 +1389,7 @@ KEY2=value2
               )}
 
               {activeTab === 'env' && (
-                <div className="space-y-4">
+                <div className="space-y-1">
                   <div className="flex justify-between items-center">
                     <p className="text-sm text-slate-400">
                       Manage environment variables for this stack
@@ -1430,7 +1430,7 @@ KEY2=value2
                     </Button>
                   )}
 
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {Object.entries(envVars).map(([key, value]) => (
                       <div key={key} className="flex space-x-2">
                         <input
@@ -1467,7 +1467,7 @@ KEY2=value2
               )}
 
               {activeTab === 'logs' && (
-                <div className="space-y-4">
+                <div className="space-y-1">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center space-x-2">
                       <p className="text-sm text-slate-400">
