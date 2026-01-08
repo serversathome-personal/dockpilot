@@ -1,11 +1,17 @@
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import config from './config/env.js';
 import logger from './utils/logger.js';
 import apiRoutes from './api/index.js';
 import logsWebSocketHandler from './websocket/logs.handler.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create Express app
 const app = express();
@@ -18,37 +24,54 @@ app.use(cors(config.cors));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logging middleware
+// Request logging middleware (skip static files)
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
-    query: req.query,
-    ip: req.ip,
-  });
+  if (!req.path.startsWith('/assets') && !req.path.startsWith('/favicon')) {
+    logger.info(`${req.method} ${req.path}`, {
+      query: req.query,
+      ip: req.ip,
+    });
+  }
   next();
 });
 
 // API Routes
 app.use('/api', apiRoutes);
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'DockPilot API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/api/health',
-      dashboard: '/api/dashboard',
-      stacks: '/api/stacks',
-      containers: '/api/containers',
-      images: '/api/images',
-      networks: '/api/networks',
-      volumes: '/api/volumes',
-      updates: '/api/updates',
-      websocket: 'ws://localhost:' + config.port + '/ws/logs',
-    },
+// Serve frontend static files in production
+if (config.nodeEnv === 'production') {
+  const frontendPath = path.join(__dirname, '../../frontend/dist');
+  logger.info(`Serving frontend from: ${frontendPath}`);
+
+  app.use(express.static(frontendPath));
+
+  // Serve index.html for all non-API routes (SPA support)
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/ws')) {
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    }
   });
-});
+} else {
+  // Development mode - show API endpoints
+  app.get('/', (req, res) => {
+    res.json({
+      success: true,
+      message: 'DockPilot API',
+      version: '1.0.0',
+      endpoints: {
+        health: '/api/health',
+        dashboard: '/api/dashboard',
+        stacks: '/api/stacks',
+        containers: '/api/containers',
+        images: '/api/images',
+        networks: '/api/networks',
+        volumes: '/api/volumes',
+        updates: '/api/updates',
+        websocket: 'ws://localhost:' + config.port + '/ws/logs',
+      },
+    });
+  });
+}
 
 // Error handling
 app.use(notFoundHandler);

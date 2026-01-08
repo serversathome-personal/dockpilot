@@ -1,4 +1,4 @@
-# Multi-stage build for Docker Management GUI
+# Multi-stage build for DockPilot
 
 # Stage 1: Build Frontend
 FROM node:20-alpine AS frontend-builder
@@ -16,37 +16,18 @@ RUN npm ci --workspace=frontend
 COPY frontend ./frontend
 
 # Build frontend
-RUN npm run build:frontend
+RUN npm run build --workspace=frontend
 
-# Stage 2: Build Backend
-FROM node:20-alpine AS backend-builder
-
-WORKDIR /app
-
-# Copy root package.json and workspace files
-COPY package*.json ./
-COPY backend/package*.json ./backend/
-
-# Install dependencies
-RUN npm ci --workspace=backend
-
-# Copy backend source
-COPY backend ./backend
-
-# Build backend
-RUN npm run build:backend
-
-# Stage 3: Production Image
+# Stage 2: Production Image
 FROM node:20-alpine
 
-# Install Docker CLI, Docker Compose, and su-exec for user switching
+# Install Docker CLI, Docker Compose, and utilities
 RUN apk add --no-cache \
     docker-cli \
-    docker-compose \
+    docker-cli-compose \
     curl \
     ca-certificates \
-    su-exec \
-    shadow
+    procps
 
 # Create app directory
 WORKDIR /app
@@ -63,8 +44,8 @@ RUN npm ci --workspace=backend --omit=dev
 # Copy built frontend from frontend-builder
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-# Copy built backend from backend-builder
-COPY --from=backend-builder /app/backend/dist ./backend/dist
+# Copy backend source
+COPY backend/src ./backend/src
 
 # Create directories for stacks and data
 RUN mkdir -p /stacks /data
@@ -75,17 +56,15 @@ RUN chmod +x /entrypoint.sh
 
 # Set environment variables
 ENV NODE_ENV=production \
-    PORT=3000 \
-    STACKS_DIR=/stacks \
-    PUID=0 \
-    PGID=0
+    PORT=5000 \
+    STACKS_DIR=/stacks
 
-# Expose port
-EXPOSE 3000
+# Expose port (frontend served by backend in production)
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+    CMD node -e "require('http').get('http://localhost:5000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Use entrypoint script
 ENTRYPOINT ["/entrypoint.sh"]
