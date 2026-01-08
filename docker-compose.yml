@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  dockpilot:
+    image: dockpilot:latest
+    container_name: dockpilot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Persistent storage for stacks
+      - ./stacks:/stacks
+      # Optional: Persistent data directory
+      - dockpilot-data:/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - STACKS_DIR=/stacks
+      # TrueNAS/Permissions: Set PUID and PGID to match your host user
+      - PUID=${PUID:-0}
+      - PGID=${PGID:-0}
+      # Optional: Configure authentication
+      # - AUTH_ENABLED=true
+      # - JWT_SECRET=your-secret-key-here
+      # Optional: Configure Docker connection
+      # - DOCKER_HOST=unix:///var/run/docker.sock
+    networks:
+      - dockpilot-network
+    labels:
+      - "com.docker.compose.project=dockpilot"
+
+networks:
+  dockpilot-network:
+    driver: bridge
+
+volumes:
+  dockpilot-data:
+    driver: local

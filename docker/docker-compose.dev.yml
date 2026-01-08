@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  backend:
+    image: node:20-alpine
+    container_name: docker-gui-backend-dev
+    working_dir: /app
+    command: sh -c "apk add --no-cache docker-cli docker-compose && npm run dev --workspace=backend"
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - ..:/app
+      # Mount Docker socket
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Cache node_modules
+      - backend-node-modules:/app/backend/node_modules
+      - root-node-modules:/app/node_modules
+      # Development stacks directory
+      - ./dev-stacks:/stacks
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - STACKS_DIR=/stacks
+      # Enable debug logging
+      - DEBUG=docker-gui:*
+    networks:
+      - docker-gui-dev
+
+  frontend:
+    image: node:20-alpine
+    container_name: docker-gui-frontend-dev
+    working_dir: /app
+    command: npm run dev --workspace=frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source code for hot reload
+      - ..:/app
+      # Cache node_modules
+      - frontend-node-modules:/app/frontend/node_modules
+      - root-node-modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:3000
+    networks:
+      - docker-gui-dev
+    depends_on:
+      - backend
+
+networks:
+  docker-gui-dev:
+    driver: bridge
+
+volumes:
+  backend-node-modules:
+  frontend-node-modules:
+  root-node-modules:

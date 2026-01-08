@@ -1,0 +1,43 @@
+{
+  "name": "dockpilot",
+  "version": "1.0.0",
+  "description": "DockPilot - A modern web-based GUI for managing Docker containers and stacks",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "build:backend": "npm run build --workspace=backend",
+    "docker:build": "docker build -f docker/Dockerfile -t dockpilot:latest .",
+    "docker:dev": "docker-compose -f docker/docker-compose.dev.yml up",
+    "docker:prod": "docker-compose up"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/dockpilot.git"
+  },
+  "keywords": [
+    "docker",
+    "dockpilot",
+    "gui",
+    "management",
+    "containers",
+    "docker-compose",
+    "portainer-alternative"
+  ],
+  "author": "",
+  "license": "MIT"
+}
