@@ -86,6 +86,9 @@ services:
       - NODE_ENV=production
       - PORT=5000
       - STACKS_DIR=/stacks
+      # Optional: Set user/group for created stacks (useful for LinuxServer.io containers)
+      # - PUID=1000
+      # - PGID=1000
 ```
 
 2. Start DockPilot:
@@ -109,6 +112,7 @@ docker run -d \
   -e PORT=5000 \
   -e STACKS_DIR=/stacks \
   serversathome/dockpilot:latest
+  # Optional: Add -e PUID=1000 -e PGID=1000 for user/group settings
 ```
 
 ## 📁 Directory Structure

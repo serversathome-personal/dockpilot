@@ -73,7 +73,7 @@ export default function Header() {
         <div className="flex items-center space-x-4">
           {/* GitHub Link */}
           <a
-            href="https://github.com/yourusername/dockpilot"
+            href="https://github.com/serversathome/dockpilot"
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 text-slate-400 hover:text-white transition-colors"
