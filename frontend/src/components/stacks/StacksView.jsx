@@ -1208,8 +1208,8 @@ KEY2=value2
         {selectedStack && (
           <div className="space-y-1">
             {/* Stack Info */}
-            <div className="glass-card p-2">
-              <div className="grid grid-cols-3 gap-4">
+            <div className="glass-card p-1">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <p className="text-sm text-slate-400">Status</p>
                   <Badge variant={selectedStack.status === 'running' ? 'running' : 'stopped'}>
@@ -1312,52 +1312,47 @@ KEY2=value2
             </div>
 
             {/* Tabs */}
-            <div className="border-b border-glass-border">
-              <nav className="flex space-x-4">
-                <button
-                  onClick={() => setActiveTab('compose')}
-                  className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'compose'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  <DocumentTextIcon className="h-4 w-4 inline mr-1" />
-                  Compose File
-                </button>
-                <button
-                  onClick={() => setActiveTab('env')}
-                  className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'env'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  <Cog6ToothIcon className="h-4 w-4 inline mr-1" />
-                  Environment
-                </button>
-                <button
-                  onClick={() => setActiveTab('logs')}
-                  className={`pb-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'logs'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  <DocumentMagnifyingGlassIcon className="h-4 w-4 inline mr-1" />
-                  Logs
-                </button>
-              </nav>
+            <div className="flex space-x-4 border-b border-glass-border">
+              <button
+                onClick={() => setActiveTab('compose')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                  activeTab === 'compose'
+                    ? 'border-primary text-white'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                <DocumentTextIcon className="h-4 w-4 inline mr-1" />
+                Compose File
+              </button>
+              <button
+                onClick={() => setActiveTab('env')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                  activeTab === 'env'
+                    ? 'border-primary text-white'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                <Cog6ToothIcon className="h-4 w-4 inline mr-1" />
+                Environment
+              </button>
+              <button
+                onClick={() => setActiveTab('logs')}
+                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                  activeTab === 'logs'
+                    ? 'border-primary text-white'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                <DocumentMagnifyingGlassIcon className="h-4 w-4 inline mr-1" />
+                Logs
+              </button>
             </div>
 
             {/* Tab Content */}
             <div className="min-h-[400px]">
               {activeTab === 'compose' && (
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-slate-400">
-                      Edit your docker-compose.yml configuration
-                    </p>
+                  <div className="flex justify-end items-center">
                     {isEditing ? (
                       <div className="flex space-x-2">
                         <Button
@@ -1398,10 +1393,7 @@ KEY2=value2
 
               {activeTab === 'env' && (
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <p className="text-sm text-slate-400">
-                      Manage environment variables for this stack
-                    </p>
+                  <div className="flex justify-end items-center">
                     {isEditing ? (
                       <div className="flex space-x-2">
                         <Button
@@ -1468,20 +1460,15 @@ ANOTHER_KEY=another_value
 
               {activeTab === 'logs' && (
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-2">
-                      <p className="text-sm text-slate-400">
-                        Aggregated logs from all containers in this stack
-                      </p>
-                      {isOperationInProgress && (
-                        <Badge variant="primary">Auto-refreshing...</Badge>
-                      )}
-                    </div>
+                  <div className="flex justify-end items-center space-x-2">
+                    {isOperationInProgress && (
+                      <Badge variant="primary">Auto-refreshing...</Badge>
+                    )}
                     <Button variant="ghost" size="sm" onClick={loadLogs}>
                       Refresh
                     </Button>
                   </div>
-                  <div className="glass-card bg-black/50 p-2 rounded-lg overflow-auto max-h-[400px]">
+                  <div className="glass-card bg-black/50 p-1 rounded-lg overflow-auto max-h-[400px]">
                     <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap">
                       {logs || 'No logs available'}
                     </pre>
