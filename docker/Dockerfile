@@ -10,7 +10,7 @@ COPY package*.json ./
 COPY frontend/package*.json ./frontend/
 
 # Install dependencies
-RUN npm ci --workspace=frontend
+RUN npm install --workspace=frontend --prefer-offline --no-audit
 
 # Copy frontend source
 COPY frontend ./frontend
@@ -39,7 +39,7 @@ COPY package*.json ./
 COPY backend/package*.json ./backend/
 
 # Install production dependencies only
-RUN npm ci --workspace=backend --omit=dev
+RUN npm install --workspace=backend --omit=dev --prefer-offline --no-audit
 
 # Copy built frontend from frontend-builder
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
