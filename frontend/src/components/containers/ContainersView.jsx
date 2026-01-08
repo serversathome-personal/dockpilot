@@ -270,6 +270,11 @@ export default function ContainersView() {
       key: 'image',
       label: 'Image',
       sortable: true,
+      render: (image) => (
+        <span className="text-sm text-slate-300 truncate block max-w-xs" title={image}>
+          {image}
+        </span>
+      ),
     },
     {
       key: 'state',
@@ -606,9 +611,9 @@ export default function ContainersView() {
                     <h3 className="text-sm font-medium text-slate-400 mb-2">Name</h3>
                     <p className="text-sm text-white">{containerDetails.name}</p>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <h3 className="text-sm font-medium text-slate-400 mb-2">Image</h3>
-                    <p className="text-sm text-white">{containerDetails.image}</p>
+                    <p className="text-sm text-white break-all">{containerDetails.image}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-slate-400 mb-2">Status</h3>

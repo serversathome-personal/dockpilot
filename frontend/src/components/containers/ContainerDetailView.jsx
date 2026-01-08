@@ -319,9 +319,9 @@ export default function ContainerDetailView() {
       <Card title="Overview">
         {containerDetails && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+            <div className="md:col-span-2">
               <p className="text-sm text-slate-400">Image</p>
-              <p className="text-white">{container.image}</p>
+              <p className="text-white break-all">{container.image}</p>
             </div>
             <div>
               <p className="text-sm text-slate-400">Status</p>
