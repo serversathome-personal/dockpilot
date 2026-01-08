@@ -10,6 +10,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+  packages: write
+
 env:
   DOCKER_IMAGE: serversathome/dockpilot
   PLATFORMS: linux/amd64
@@ -73,6 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build-and-push
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
