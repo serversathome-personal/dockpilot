@@ -12,6 +12,28 @@ const execAsync = promisify(exec);
 class StackService {
   constructor() {
     this.stacksDir = config.stacks.directory;
+    // Supported compose file names in priority order
+    this.composeFileNames = [
+      'docker-compose.yml',
+      'docker-compose.yaml',
+      'compose.yml',
+      'compose.yaml'
+    ];
+  }
+
+  /**
+   * Find the compose file in a stack directory
+   * @param {string} stackDir - Stack directory
+   * @returns {Promise<string|null>} Path to compose file or null if not found
+   */
+  async findComposeFile(stackDir) {
+    for (const fileName of this.composeFileNames) {
+      const filePath = path.join(stackDir, fileName);
+      if (await fs.pathExists(filePath)) {
+        return filePath;
+      }
+    }
+    return null;
   }
 
   /**
@@ -23,12 +45,12 @@ class StackService {
    */
   async executeComposeCommand(stackDir, command, args = []) {
     try {
-      const composeFile = path.join(stackDir, 'docker-compose.yml');
+      const composeFile = await this.findComposeFile(stackDir);
       const envFile = path.join(stackDir, '.env');
 
       // Check if compose file exists
-      if (!(await fs.pathExists(composeFile))) {
-        throw new Error('docker-compose.yml not found');
+      if (!composeFile) {
+        throw new Error('No compose file found (docker-compose.yml, docker-compose.yaml, compose.yml, or compose.yaml)');
       }
 
       // Build command
@@ -76,12 +98,12 @@ class StackService {
   async streamComposeCommand(stackDir, command, args = [], onData) {
     return new Promise(async (resolve, reject) => {
       try {
-        const composeFile = path.join(stackDir, 'docker-compose.yml');
+        const composeFile = await this.findComposeFile(stackDir);
         const envFile = path.join(stackDir, '.env');
 
         // Check if compose file exists
-        if (!(await fs.pathExists(composeFile))) {
-          throw new Error('docker-compose.yml not found');
+        if (!composeFile) {
+          throw new Error('No compose file found (docker-compose.yml, docker-compose.yaml, compose.yml, or compose.yaml)');
         }
 
         // Build command args array
@@ -165,10 +187,10 @@ class StackService {
       for (const entry of entries) {
         if (entry.isDirectory()) {
           const stackDir = path.join(this.stacksDir, entry.name);
-          const composeFile = path.join(stackDir, 'docker-compose.yml');
+          const composeFile = await this.findComposeFile(stackDir);
 
-          // Check if docker-compose.yml exists
-          if (await fs.pathExists(composeFile)) {
+          // Check if any compose file exists
+          if (composeFile) {
             try {
               const compose = await this.getComposeFile(entry.name);
               const containers = await dockerService.getStackContainers(entry.name);
@@ -238,10 +260,11 @@ class StackService {
    */
   async getComposeFile(stackName) {
     try {
-      const composeFile = path.join(this.stacksDir, stackName, 'docker-compose.yml');
+      const stackDir = path.join(this.stacksDir, stackName);
+      const composeFile = await this.findComposeFile(stackDir);
 
-      if (!(await fs.pathExists(composeFile))) {
-        throw new Error('docker-compose.yml not found');
+      if (!composeFile) {
+        throw new Error('No compose file found (docker-compose.yml, docker-compose.yaml, compose.yml, or compose.yaml)');
       }
 
       const content = await fs.readFile(composeFile, 'utf8');
@@ -260,7 +283,12 @@ class StackService {
    */
   async updateComposeFile(stackName, content) {
     try {
-      const composeFile = path.join(this.stacksDir, stackName, 'docker-compose.yml');
+      const stackDir = path.join(this.stacksDir, stackName);
+      const composeFile = await this.findComposeFile(stackDir);
+
+      if (!composeFile) {
+        throw new Error('No compose file found (docker-compose.yml, docker-compose.yaml, compose.yml, or compose.yaml)');
+      }
 
       // Validate YAML syntax
       try {
@@ -275,7 +303,7 @@ class StackService {
         await fs.copy(composeFile, backupFile);
       }
 
-      // Write new content
+      // Write new content (preserve original filename)
       await fs.writeFile(composeFile, content, 'utf8');
       logger.info(`Updated compose file for stack ${stackName}`);
     } catch (error) {
@@ -639,19 +667,13 @@ class StackService {
         logger.warn(`Git clone stderr: ${stderr}`);
       }
 
-      // Check if docker-compose.yml or docker-compose.yaml exists
-      const composeYml = path.join(stackDir, 'docker-compose.yml');
-      const composeYaml = path.join(stackDir, 'docker-compose.yaml');
+      // Check if any compose file exists
+      const composeFile = await this.findComposeFile(stackDir);
 
-      if (!(await fs.pathExists(composeYml)) && !(await fs.pathExists(composeYaml))) {
+      if (!composeFile) {
         // Clean up - remove the cloned directory
         await fs.remove(stackDir);
-        throw new Error('No docker-compose.yml or docker-compose.yaml found in the repository');
-      }
-
-      // Rename docker-compose.yaml to docker-compose.yml if needed
-      if (!(await fs.pathExists(composeYml)) && (await fs.pathExists(composeYaml))) {
-        await fs.rename(composeYaml, composeYml);
+        throw new Error('No compose file found in the repository (docker-compose.yml, docker-compose.yaml, compose.yml, or compose.yaml)');
       }
 
       logger.info(`Successfully cloned stack ${stackName} from ${repoUrl}`);
