@@ -104,9 +104,9 @@ export default function Header() {
               className="relative p-2 text-slate-400 hover:text-white transition-colors"
             >
               <BellIcon className="h-6 w-6" />
-              {notifications.length > 0 && (
+              {notifications.filter(n => n.type === 'error').length > 0 && (
                 <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-danger rounded-full">
-                  {notifications.length}
+                  {notifications.filter(n => n.type === 'error').length}
                 </span>
               )}
             </button>
