@@ -105,40 +105,36 @@ jobs:
             COMMITS=$(git log --pretty=format:"- %s" ${TAG_NAME})
           fi
 
-          # Create release notes
-          cat > release_notes.md <<'RELEASE_NOTES'
-## What's Changed
-
-${COMMITS}
-
-## 🚀 Quick Start
-
-```yaml
-services:
-  dockpilot:
-    image: serversathome/dockpilot:${TAG_NAME}
-    container_name: dockpilot
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./stacks:/stacks
-      - ./data:/app/backend/config/data
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - STACKS_DIR=/stacks
-```
-
----
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-RELEASE_NOTES
-
-          # Substitute variables
-          sed -i "s|\${TAG_NAME}|${TAG_NAME}|g" release_notes.md
-          sed -i "s|\${COMMITS}|${COMMITS}|g" release_notes.md
+          # Create release notes using echo
+          {
+            echo "## What's Changed"
+            echo ""
+            echo "${COMMITS}"
+            echo ""
+            echo "## 🚀 Quick Start"
+            echo ""
+            echo '```yaml'
+            echo "services:"
+            echo "  dockpilot:"
+            echo "    image: serversathome/dockpilot:${TAG_NAME}"
+            echo "    container_name: dockpilot"
+            echo "    restart: unless-stopped"
+            echo "    ports:"
+            echo '      - "5000:5000"'
+            echo "    volumes:"
+            echo "      - /var/run/docker.sock:/var/run/docker.sock:ro"
+            echo "      - ./stacks:/stacks"
+            echo "      - ./data:/app/backend/config/data"
+            echo "    environment:"
+            echo "      - NODE_ENV=production"
+            echo "      - PORT=5000"
+            echo "      - STACKS_DIR=/stacks"
+            echo '```'
+            echo ""
+            echo "---"
+            echo ""
+            echo "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+          } > release_notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
