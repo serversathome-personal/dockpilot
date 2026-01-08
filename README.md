@@ -242,19 +242,6 @@ MIT License - see LICENSE file for details
 ### Container Management
 ![Containers](screenshots/containers.png)
 
-## 🐛 Known Issues
-
-- None currently
-
-## 🗺️ Roadmap
-
-- [ ] Multi-host support
-- [ ] User authentication
-- [ ] RBAC support
-- [ ] Backup/restore functionality
-- [ ] Template marketplace
-- [ ] Webhook notifications
-
 ## 📞 Support
 
 - GitHub Issues: [Report a bug](https://github.com/serversathome/dockpilot/issues)
