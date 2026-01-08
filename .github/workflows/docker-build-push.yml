@@ -12,7 +12,7 @@ on:
 
 env:
   DOCKER_IMAGE: serversathome/dockpilot
-  PLATFORMS: linux/amd64,linux/arm64
+  PLATFORMS: linux/amd64
 
 jobs:
   build-and-push:

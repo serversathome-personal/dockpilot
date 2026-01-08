@@ -4,7 +4,7 @@
   <img src="dockpilot.png" alt="DockPilot Logo" width="200"/>
 </p>
 
-> ⚠️ **DISCLAIMER:** This project is 100% vibe-coded. I only partially know what I'm doing, and that's okay! Built with enthusiasm, AI assistance, and a lot of trial and error. Use at your own risk (but also, have fun with it). 🚀
+> ⚠️ **DISCLAIMER:** This project is 100% vibe-coded. I only partially know what I'm doing.
 
 **DockPilot** is a modern Docker management UI that combines Dockge's file-based architecture with Portainer's comprehensive feature set. Built with React and Node.js, it provides an intuitive web interface for managing Docker containers, stacks, images, networks, and volumes.
 
