@@ -50,9 +50,6 @@ export default function StacksView() {
   const [newStackName, setNewStackName] = useState('');
   const [newStackCompose, setNewStackCompose] = useState('version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"\n');
   const [newStackEnvVars, setNewStackEnvVars] = useState('');
-  const [newStackPUID, setNewStackPUID] = useState('1000');
-  const [newStackPGID, setNewStackPGID] = useState('1000');
-  const [includeUserGroup, setIncludeUserGroup] = useState(false);
 
   // Detail view state
   const [activeTab, setActiveTab] = useState('compose');
@@ -145,12 +142,6 @@ export default function StacksView() {
             }
           }
         }
-      }
-
-      // Add PUID/PGID if user/group is enabled
-      if (includeUserGroup) {
-        if (newStackPUID) envVarsObject['PUID'] = newStackPUID;
-        if (newStackPGID) envVarsObject['PGID'] = newStackPGID;
       }
 
       await stacksAPI.create({
@@ -920,14 +911,11 @@ export default function StacksView() {
           setNewStackName('');
           setNewStackCompose('version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"\n');
           setNewStackEnvVars('');
-          setNewStackPUID('1000');
-          setNewStackPGID('1000');
-          setIncludeUserGroup(false);
         }}
         title="Create New Stack"
         size="xl"
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Stack Name
@@ -970,62 +958,43 @@ services:
   app:
     image: nginx:latest"
             />
-            <p className="mt-2 text-xs text-slate-400">
-              <strong>Important:</strong> When using bind mounts in volumes, use the HOST system paths, not DockPilot container paths.
-              If DockPilot mounts <code className="bg-black/30 px-1 rounded">/mnt/tank/stacks</code> as <code className="bg-black/30 px-1 rounded">/stacks</code>,
-              use <code className="bg-black/30 px-1 rounded">/mnt/tank/stacks/...</code> in your compose file.
-            </p>
-          </div>
-
-          {/* User and Group Settings */}
-          <div className="border-t border-glass-border pt-4">
-            <label className="flex items-center space-x-2 text-sm text-slate-300 mb-3">
-              <input
-                type="checkbox"
-                checked={includeUserGroup}
-                onChange={(e) => setIncludeUserGroup(e.target.checked)}
-                className="rounded border-glass-border bg-glass-darker text-primary focus:ring-primary focus:ring-offset-0"
-              />
-              <span>Set User and Group (PUID/PGID)</span>
-            </label>
-
-            {includeUserGroup && (
-              <div className="grid grid-cols-2 gap-4 pl-6">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    PUID (User ID)
-                  </label>
-                  <input
-                    type="text"
-                    value={newStackPUID}
-                    onChange={(e) => setNewStackPUID(e.target.value)}
-                    placeholder="1000"
-                    className="glass-input w-full text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    PGID (Group ID)
-                  </label>
-                  <input
-                    type="text"
-                    value={newStackPGID}
-                    onChange={(e) => setNewStackPGID(e.target.value)}
-                    placeholder="1000"
-                    className="glass-input w-full text-sm"
-                  />
-                </div>
-              </div>
-            )}
-            <p className="mt-2 text-xs text-slate-400">
-              Commonly used for LinuxServer.io containers and running as a specific user.
-            </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Environment Variables
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-slate-300">
+                Environment Variables
+              </label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  // Extract environment variables from compose file
+                  const envVarPattern = /\$\{([^}]+)\}|\$([A-Z_][A-Z0-9_]*)/g;
+                  const matches = newStackCompose.matchAll(envVarPattern);
+                  const envVars = new Set();
+
+                  for (const match of matches) {
+                    const varName = match[1] || match[2];
+                    if (varName) {
+                      envVars.add(varName);
+                    }
+                  }
+
+                  if (envVars.size > 0) {
+                    const envText = Array.from(envVars).map(v => `${v}=`).join('\n');
+                    setNewStackEnvVars(envText);
+                  } else {
+                    addNotification({
+                      type: 'info',
+                      message: 'No environment variables found in compose file',
+                    });
+                  }
+                }}
+              >
+                Extract from Compose
+              </Button>
+            </div>
             <CodeMirror
               value={newStackEnvVars}
               onChange={(value) => setNewStackEnvVars(value)}
@@ -1058,9 +1027,6 @@ KEY2=value2
                 setNewStackName('');
                 setNewStackCompose('version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"\n');
                 setNewStackEnvVars('');
-                setNewStackPUID('1000');
-                setNewStackPGID('1000');
-                setIncludeUserGroup(false);
               }}
             >
               Cancel
