@@ -58,6 +58,7 @@ export default function StacksView() {
   const [activeTab, setActiveTab] = useState('compose');
   const [composeContent, setComposeContent] = useState('');
   const [envVars, setEnvVars] = useState({});
+  const [envVarsText, setEnvVarsText] = useState('');
   const [logs, setLogs] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [isOperationInProgress, setIsOperationInProgress] = useState(false);
@@ -594,7 +595,15 @@ export default function StacksView() {
       // Convert compose object to YAML string
       const yaml = await import('js-yaml');
       setComposeContent(yaml.dump(composeData.data));
-      setEnvVars(envData.data || {});
+
+      // Set env vars and convert to text format
+      const envObj = envData.data || {};
+      setEnvVars(envObj);
+      const envText = Object.entries(envObj)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('\n');
+      setEnvVarsText(envText);
+
       setActiveTab('compose');
       setShowDetailModal(true);
     } catch (error) {
@@ -632,7 +641,26 @@ export default function StacksView() {
   const handleSaveEnv = async () => {
     try {
       setLoading(true);
-      await stacksAPI.updateEnv(selectedStack.name, envVars);
+
+      // Parse text format back to object
+      const envObj = {};
+      const lines = envVarsText.split('\n');
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine && !trimmedLine.startsWith('#')) {
+          const equalsIndex = trimmedLine.indexOf('=');
+          if (equalsIndex > 0) {
+            const key = trimmedLine.substring(0, equalsIndex).trim();
+            const value = trimmedLine.substring(equalsIndex + 1).trim();
+            if (key) {
+              envObj[key] = value;
+            }
+          }
+        }
+      }
+
+      await stacksAPI.updateEnv(selectedStack.name, envObj);
+      setEnvVars(envObj);
       addNotification({
         type: 'success',
         message: 'Environment variables updated successfully',
@@ -691,26 +719,6 @@ export default function StacksView() {
     const updated = [...newStackEnvVars];
     updated[index][field] = value;
     setNewStackEnvVars(updated);
-  };
-
-  const addEnvVarToDetail = () => {
-    const newKey = `VAR_${Object.keys(envVars).length + 1}`;
-    setEnvVars({ ...envVars, [newKey]: '' });
-  };
-
-  const removeEnvVarFromDetail = (key) => {
-    const updated = { ...envVars };
-    delete updated[key];
-    setEnvVars(updated);
-  };
-
-  const updateEnvVarInDetail = (oldKey, newKey, value) => {
-    const updated = { ...envVars };
-    if (oldKey !== newKey) {
-      delete updated[oldKey];
-    }
-    updated[newKey] = value;
-    setEnvVars(updated);
   };
 
   const columns = [
@@ -1399,7 +1407,14 @@ KEY2=value2
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => setIsEditing(false)}
+                          onClick={() => {
+                            setIsEditing(false);
+                            // Reset to original values
+                            const envText = Object.entries(envVars)
+                              .map(([key, value]) => `${key}=${value}`)
+                              .join('\n');
+                            setEnvVarsText(envText);
+                          }}
                         >
                           Cancel
                         </Button>
@@ -1423,46 +1438,31 @@ KEY2=value2
                     )}
                   </div>
 
+                  <CodeMirror
+                    value={envVarsText}
+                    onChange={(value) => setEnvVarsText(value)}
+                    theme={oneDark}
+                    editable={isEditing}
+                    basicSetup={{
+                      lineNumbers: true,
+                      highlightActiveLineGutter: true,
+                      highlightActiveLine: true,
+                    }}
+                    style={{
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                    }}
+                    minHeight="300px"
+                    placeholder="KEY=value
+ANOTHER_KEY=another_value
+# Comments are supported"
+                  />
                   {isEditing && (
-                    <Button variant="ghost" size="sm" onClick={addEnvVarToDetail}>
-                      <PlusIcon className="h-4 w-4 mr-1" />
-                      Add Variable
-                    </Button>
+                    <p className="text-xs text-slate-400">
+                      Format: KEY=value (one per line). Lines starting with # are ignored.
+                    </p>
                   )}
-
-                  <div className="space-y-1">
-                    {Object.entries(envVars).map(([key, value]) => (
-                      <div key={key} className="flex space-x-2">
-                        <input
-                          type="text"
-                          value={key}
-                          onChange={(e) => updateEnvVarInDetail(key, e.target.value, value)}
-                          className="glass-input flex-1 font-mono text-sm"
-                          disabled={!isEditing}
-                        />
-                        <input
-                          type="text"
-                          value={value}
-                          onChange={(e) => updateEnvVarInDetail(key, key, e.target.value)}
-                          className="glass-input flex-1 font-mono text-sm"
-                          disabled={!isEditing}
-                        />
-                        {isEditing && (
-                          <button
-                            onClick={() => removeEnvVarFromDetail(key)}
-                            className="text-danger hover:text-danger-light transition-colors"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {Object.keys(envVars).length === 0 && (
-                      <p className="text-slate-400 text-sm text-center py-8">
-                        No environment variables defined
-                      </p>
-                    )}
-                  </div>
                 </div>
               )}
 
