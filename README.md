@@ -77,8 +77,7 @@ services:
     container_name: dockpilot
     restart: unless-stopped
     ports:
-      - "5000:5000"    # Backend API
-      - "3000:3000"    # Frontend UI
+      - "5000:5000"    # Web UI and API (frontend served by backend)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker socket (read-only)
       - ./stacks:/stacks                              # Stack storage
@@ -95,7 +94,7 @@ services:
 docker-compose up -d
 ```
 
-3. Access the UI at `http://localhost:3000`
+3. Access the UI at `http://localhost:5000`
 
 ### Docker Run
 
@@ -103,7 +102,6 @@ docker-compose up -d
 docker run -d \
   --name dockpilot \
   -p 5000:5000 \
-  -p 3000:3000 \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v $(pwd)/stacks:/stacks \
   -v $(pwd)/data:/app/backend/config/data \
@@ -130,8 +128,7 @@ docker run -d \
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `NODE_ENV` | `development` | Environment mode |
-| `PORT` | `5000` | Backend API port |
-| `FRONTEND_PORT` | `3000` | Frontend port |
+| `PORT` | `5000` | Server port (serves both API and frontend in production) |
 | `STACKS_DIR` | `/stacks` | Stack storage directory |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket path |
 
