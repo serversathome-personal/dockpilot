@@ -11,7 +11,7 @@ on:
       - main
 
 env:
-  DOCKER_IMAGE: yourusername/dockpilot
+  DOCKER_IMAGE: serversathome/dockpilot
   PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
