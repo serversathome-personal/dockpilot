@@ -246,48 +246,11 @@ export default function DashboardView() {
                 )}
               </div>
               <p className="text-sm text-slate-400">
-                {formatBytes(systemInfo.storageFree)} free of {formatBytes(systemInfo.storageTotal)}
+                {systemInfo.storageFree && systemInfo.storageTotal
+                  ? `${formatBytes(systemInfo.storageFree)} free of ${formatBytes(systemInfo.storageTotal)}`
+                  : 'Storage info unavailable'}
               </p>
             </Card>
-          </div>
-
-          {/* System Info Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {/* Docker Card - Compact */}
-            <Card className="p-3">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 rounded-lg bg-glass-light text-purple-500">
-                  <ServerIcon className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-400">Docker</p>
-                  <p className="text-base font-bold text-white">{systemInfo.dockerVersion}</p>
-                  <p className="text-sm text-slate-400">{systemInfo.os}</p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Network Card - Compact */}
-            {systemInfo.ipAddresses && systemInfo.ipAddresses.length > 0 && (
-              <Card className="p-3">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 rounded-lg bg-glass-light text-blue-500">
-                    <GlobeAltIcon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-400">Network</p>
-                    {systemInfo.ipAddresses.map((ip, idx) => (
-                      <p key={idx} className="text-base font-mono text-white">{ip}</p>
-                    ))}
-                    {systemInfo.networkRx !== undefined && systemInfo.networkTx !== undefined && (
-                      <p className="text-sm text-slate-400">
-                        ↓ {formatBytes(systemInfo.networkRx)} • ↑ {formatBytes(systemInfo.networkTx)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            )}
           </div>
 
           {/* Usage History Charts */}
