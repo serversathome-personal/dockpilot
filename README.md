@@ -234,13 +234,16 @@ MIT License - see LICENSE file for details
 ## 📸 Screenshots
 
 ### Dashboard
-![Dashboard](screenshots/dashboard.png)
+<img width="1905" height="1236" alt="image" src="https://github.com/user-attachments/assets/7f76f16c-4db0-4343-9f24-1257e2a8c8ad" />
+
 
 ### Stack Management
-![Stacks](screenshots/stacks.png)
+<img width="1905" height="1239" alt="image" src="https://github.com/user-attachments/assets/8185731d-fda0-4fde-b4fe-bcb4795b02ee" />
+
 
 ### Container Management
-![Containers](screenshots/containers.png)
+<img width="1917" height="1246" alt="image" src="https://github.com/user-attachments/assets/ff73c987-51e8-415c-bbe7-0369c6867a97" />
+
 
 ## 📞 Support
 
