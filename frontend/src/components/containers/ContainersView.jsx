@@ -22,6 +22,7 @@ import {
   PauseIcon,
   TrashIcon,
   ArrowUpCircleIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 
 export default function ContainersView() {
@@ -421,6 +422,18 @@ export default function ContainersView() {
               <PlayIcon className="h-5 w-5" />
             </button>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedContainer(container);
+              setActiveTab('logs');
+              setShowDetailModal(true);
+            }}
+            className="text-slate-400 hover:text-white transition-colors"
+            title="View Logs"
+          >
+            <DocumentTextIcon className="h-5 w-5" />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
