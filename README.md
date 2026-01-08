@@ -100,8 +100,45 @@ docker-compose up -d
 
 3. Access the UI at `http://localhost:5000`
 
+### Important: Volume Mount Path Configuration
+
+When DockPilot runs in Docker, the stacks directory path must be **the same on both the host and inside the container**. This ensures that volume mounts in your stack compose files work correctly.
+
+**Why this matters:**
+- DockPilot manages Docker via the Docker socket (Docker-in-Docker)
+- When your stack compose files reference volume paths, Docker looks for those paths on the **host filesystem**
+- If paths don't match, Docker won't find the directories and containers will fail to start
+
+**Simple setup (development):**
+```yaml
+volumes:
+  - ./stacks:/stacks
+environment:
+  - STACKS_DIR=/stacks
+```
+✅ Works if `./stacks` is at `/stacks` on your system
+
+**Production setup (custom path):**
+If your stacks are at a specific path like `/mnt/tank/stacks`, use the **same path** for both sides of the mount:
+
+```yaml
+volumes:
+  - /mnt/tank/stacks:/mnt/tank/stacks  # Same path on both sides
+environment:
+  - STACKS_DIR=/mnt/tank/stacks        # Use the real host path
+```
+
+Then in your stack compose files, use the full path:
+```yaml
+volumes:
+  - /mnt/tank/stacks/mystack/data:/config
+```
+
+✅ Docker will find `/mnt/tank/stacks/mystack/data` on the host because paths match
+
 ### Docker Run
 
+**Simple setup:**
 ```bash
 docker run -d \
   --name dockpilot \
@@ -113,8 +150,23 @@ docker run -d \
   -e PORT=5000 \
   -e STACKS_DIR=/stacks \
   serversathome/dockpilot:latest
-  # Optional: Add -e PUID=1000 -e PGID=1000 for user/group settings
 ```
+
+**Production setup (custom path):**
+```bash
+docker run -d \
+  --name dockpilot \
+  -p 5000:5000 \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v /mnt/tank/stacks:/mnt/tank/stacks \
+  -v $(pwd)/data:/app/backend/config/data \
+  -e NODE_ENV=production \
+  -e PORT=5000 \
+  -e STACKS_DIR=/mnt/tank/stacks \
+  serversathome/dockpilot:latest
+```
+
+💡 **Optional:** Add `-e PUID=1000 -e PGID=1000` for user/group settings
 
 ## 📁 Directory Structure
 
