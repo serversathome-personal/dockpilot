@@ -58,7 +58,7 @@ export default function Sidebar() {
         {/* Footer info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-glass-border">
           <div className="flex items-center justify-center text-xs text-slate-400">
-            <span>v1.0.0</span>
+            <span>v1.0.7</span>
           </div>
         </div>
       </div>
