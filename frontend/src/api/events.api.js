@@ -1,4 +1,4 @@
-import api from './axios';
+import apiClient from './client';
 
 export const eventsAPI = {
   /**
@@ -13,7 +13,7 @@ export const eventsAPI = {
     if (options.limit) params.append('limit', options.limit);
 
     const queryString = params.toString();
-    return api.get(`/events${queryString ? `?${queryString}` : ''}`);
+    return apiClient.get(`/events${queryString ? `?${queryString}` : ''}`);
   },
 
   /**
