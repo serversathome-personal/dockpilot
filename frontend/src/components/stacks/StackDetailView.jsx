@@ -6,6 +6,7 @@ import Card from '../common/Card';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Badge from '../common/Badge';
+import ComposeValidation from '../common/ComposeValidation';
 import { ArrowLeftIcon, PlayIcon, StopIcon, ArrowPathIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon } from '@heroicons/react/24/outline';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
@@ -600,7 +601,7 @@ export default function StackDetailView() {
             )}
           </div>
         </div>
-        <div className="p-1">
+        <div className="p-1 space-y-2">
           <CodeMirror
             value={composeContent}
             onChange={(value) => setComposeContent(value)}
@@ -621,6 +622,7 @@ export default function StackDetailView() {
             minHeight="200px"
             maxHeight="500px"
           />
+          <ComposeValidation yaml={composeContent} />
         </div>
       </Card>
 

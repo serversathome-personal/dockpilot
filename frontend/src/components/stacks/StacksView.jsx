@@ -8,6 +8,7 @@ import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
 import Badge from '../common/Badge';
+import ComposeValidation from '../common/ComposeValidation';
 import { formatRelativeTime } from '../../utils/formatters';
 import {
   PlusIcon,
@@ -932,8 +933,8 @@ export default function StacksView() {
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-300">
               Docker Compose File
             </label>
             <CodeMirror
@@ -960,6 +961,7 @@ services:
   app:
     image: nginx:latest"
             />
+            <ComposeValidation yaml={newStackCompose} />
           </div>
 
           <div>
@@ -1319,7 +1321,7 @@ KEY2=value2
             {/* Tab Content */}
             <div className="min-h-[400px]">
               {activeTab === 'compose' && (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <div className="flex justify-end items-center">
                     {isEditing ? (
                       <div className="flex space-x-2">
@@ -1349,13 +1351,27 @@ KEY2=value2
                       </Button>
                     )}
                   </div>
-                  <textarea
+                  <CodeMirror
                     value={composeContent}
-                    onChange={(e) => setComposeContent(e.target.value)}
-                    className="glass-input w-full font-mono text-sm"
-                    rows={20}
-                    disabled={!isEditing}
+                    onChange={(value) => setComposeContent(value)}
+                    extensions={[yaml()]}
+                    theme={oneDark}
+                    editable={isEditing}
+                    basicSetup={{
+                      lineNumbers: true,
+                      highlightActiveLineGutter: true,
+                      highlightActiveLine: true,
+                      foldGutter: true,
+                    }}
+                    style={{
+                      fontSize: '14px',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                    }}
+                    minHeight="300px"
+                    maxHeight="400px"
                   />
+                  <ComposeValidation yaml={composeContent} />
                 </div>
               )}
 
