@@ -61,6 +61,7 @@ export default function StacksView() {
   const [isEditing, setIsEditing] = useState(false);
   const [isOperationInProgress, setIsOperationInProgress] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showRunningOnly, setShowRunningOnly] = useState(false);
 
   useEffect(() => {
     loadStacks();
@@ -869,31 +870,45 @@ export default function StacksView() {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex items-center relative">
-        <input
-          type="text"
-          placeholder="Search stacks by name or status..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-        />
-        {searchTerm && (
-          <button
-            onClick={() => setSearchTerm('')}
-            className="absolute right-3 text-slate-400 hover:text-white transition-colors"
-            title="Clear search"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+      {/* Search Bar and Filters */}
+      <div className="flex items-center gap-4">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Search stacks by name or status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+              title="Clear search"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showRunningOnly}
+            onChange={(e) => setShowRunningOnly(e.target.checked)}
+            className="w-4 h-4 rounded border-glass-border bg-glass-dark text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer"
+          />
+          <span className="text-sm text-slate-300">Running only</span>
+        </label>
       </div>
 
       <Table
         columns={columns}
         data={stacks.filter((s) => {
+          // Filter by running status
+          if (showRunningOnly && s.status !== 'running') return false;
+          // Filter by search term
           if (!searchTerm) return true;
           const search = searchTerm.toLowerCase();
           return (
