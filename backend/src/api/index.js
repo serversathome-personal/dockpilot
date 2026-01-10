@@ -6,6 +6,7 @@ import imagesRoutes from './routes/images.js';
 import networksRoutes from './routes/networks.js';
 import volumesRoutes from './routes/volumes.js';
 import updatesRoutes from './routes/updates.js';
+import eventsRoutes from './routes/events.js';
 
 const router = express.Router();
 
@@ -26,5 +27,6 @@ router.use('/images', imagesRoutes);
 router.use('/networks', networksRoutes);
 router.use('/volumes', volumesRoutes);
 router.use('/updates', updatesRoutes);
+router.use('/events', eventsRoutes);
 
 export default router;

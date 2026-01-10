@@ -7,6 +7,7 @@ import {
   GlobeAltIcon,
   CircleStackIcon,
   ArrowPathIcon,
+  ClipboardDocumentListIcon,
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Networks', to: '/networks', icon: GlobeAltIcon },
   { name: 'Volumes', to: '/volumes', icon: CircleStackIcon },
   { name: 'Updates', to: '/updates', icon: ArrowPathIcon },
+  { name: 'Event Log', to: '/events', icon: ClipboardDocumentListIcon },
 ];
 
 export default function Sidebar() {

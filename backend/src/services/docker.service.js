@@ -876,6 +876,137 @@ class DockerService {
       throw new Error('Failed to get Docker version');
     }
   }
+
+  /**
+   * Get Docker events
+   * @param {Object} options - Filter options (since, until, filters)
+   * @returns {Promise<Array>} Array of events
+   */
+  async getEvents(options = {}) {
+    try {
+      const { since, until, limit = 100 } = options;
+
+      // Calculate default 'since' to last 24 hours if not provided
+      const sinceTime = since || Math.floor(Date.now() / 1000) - 86400;
+      const untilTime = until || Math.floor(Date.now() / 1000);
+
+      return new Promise((resolve, reject) => {
+        const events = [];
+
+        this.docker.getEvents({
+          since: sinceTime,
+          until: untilTime,
+        }, (err, stream) => {
+          if (err) {
+            logger.error('Failed to get Docker events:', err);
+            reject(new Error('Failed to get Docker events'));
+            return;
+          }
+
+          stream.on('data', (chunk) => {
+            try {
+              const event = JSON.parse(chunk.toString());
+              events.push({
+                id: event.id || '',
+                type: event.Type,
+                action: event.Action,
+                actor: {
+                  id: event.Actor?.ID || '',
+                  name: event.Actor?.Attributes?.name || event.Actor?.Attributes?.image || '',
+                  attributes: event.Actor?.Attributes || {},
+                },
+                time: event.time,
+                timeNano: event.timeNano,
+              });
+
+              // Limit the number of events to prevent memory issues
+              if (events.length >= limit) {
+                stream.destroy();
+                resolve(events.slice(0, limit));
+              }
+            } catch (parseError) {
+              // Ignore parse errors for partial data
+            }
+          });
+
+          stream.on('end', () => {
+            resolve(events);
+          });
+
+          stream.on('error', (streamError) => {
+            logger.error('Docker events stream error:', streamError);
+            resolve(events); // Return what we have so far
+          });
+
+          // Set a timeout to ensure we don't hang forever
+          setTimeout(() => {
+            stream.destroy();
+            resolve(events);
+          }, 5000);
+        });
+      });
+    } catch (error) {
+      logger.error('Failed to get Docker events:', error);
+      throw new Error('Failed to get Docker events');
+    }
+  }
+
+  /**
+   * Stream Docker events via SSE
+   * @param {Object} res - Express response object for SSE
+   * @param {Object} options - Filter options
+   */
+  streamEvents(res, options = {}) {
+    try {
+      this.docker.getEvents({
+        since: Math.floor(Date.now() / 1000) - 3600, // Last hour
+      }, (err, stream) => {
+        if (err) {
+          logger.error('Failed to stream Docker events:', err);
+          res.write(`data: ${JSON.stringify({ type: 'error', message: 'Failed to connect to Docker events' })}\n\n`);
+          res.end();
+          return;
+        }
+
+        stream.on('data', (chunk) => {
+          try {
+            const event = JSON.parse(chunk.toString());
+            const formattedEvent = {
+              type: 'event',
+              data: {
+                id: event.id || '',
+                type: event.Type,
+                action: event.Action,
+                actor: {
+                  id: event.Actor?.ID || '',
+                  name: event.Actor?.Attributes?.name || event.Actor?.Attributes?.image || '',
+                  attributes: event.Actor?.Attributes || {},
+                },
+                time: event.time,
+                timeNano: event.timeNano,
+              },
+            };
+            res.write(`data: ${JSON.stringify(formattedEvent)}\n\n`);
+          } catch (parseError) {
+            // Ignore parse errors
+          }
+        });
+
+        stream.on('error', (streamError) => {
+          logger.error('Docker events stream error:', streamError);
+          res.write(`data: ${JSON.stringify({ type: 'error', message: 'Stream error' })}\n\n`);
+        });
+
+        // Handle client disconnect
+        res.on('close', () => {
+          stream.destroy();
+        });
+      });
+    } catch (error) {
+      logger.error('Failed to stream Docker events:', error);
+      throw new Error('Failed to stream Docker events');
+    }
+  }
 }
 
 // Export singleton instance
