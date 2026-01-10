@@ -59,6 +59,13 @@
 - Update history tracking
 - Selective image updates
 
+### 📋 Event Log
+- Real-time Docker event streaming
+- View container, image, network, and volume events
+- Filter events by type
+- Color-coded actions (start, stop, create, destroy)
+- Live streaming mode with auto-refresh
+
 ### 🎨 Modern UI
 - Dark theme with smoked glass effects
 - Responsive design
