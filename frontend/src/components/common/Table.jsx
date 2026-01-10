@@ -31,7 +31,7 @@ export default function Table({ columns, data, onRowClick }) {
   return (
     <div className="bg-glass-dark backdrop-blur-xl rounded-lg border border-glass-border shadow-glass overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-glass-border">
+        <table className="min-w-full divide-y divide-glass-border table-fixed">
           <thead className="bg-glass-darker">
             <tr>
               {columns.map((column) => (

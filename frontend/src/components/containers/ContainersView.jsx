@@ -273,9 +273,11 @@ export default function ContainersView() {
       label: 'Image',
       sortable: true,
       render: (image) => (
-        <span className="text-sm text-slate-300 truncate block max-w-xs" title={image}>
-          {image}
-        </span>
+        <div className="max-w-[200px] overflow-hidden">
+          <span className="text-sm text-slate-300 truncate block" title={image}>
+            {image}
+          </span>
+        </div>
       ),
     },
     {

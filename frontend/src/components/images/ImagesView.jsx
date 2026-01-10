@@ -135,13 +135,23 @@ export default function ImagesView() {
       key: 'repository',
       label: 'Repository',
       sortable: true,
-      render: (repository) => repository,
+      render: (repository) => (
+        <div className="max-w-[250px] overflow-hidden">
+          <span className="truncate block" title={repository}>
+            {repository}
+          </span>
+        </div>
+      ),
     },
     {
       key: 'tag',
       label: 'Tag',
       sortable: true,
-      render: (tag) => tag,
+      render: (tag) => (
+        <span className="truncate block max-w-[100px]" title={tag}>
+          {tag}
+        </span>
+      ),
     },
     {
       key: 'id',
