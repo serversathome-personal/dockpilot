@@ -20,8 +20,9 @@
 ### 📦 Stack Management
 - File-based stack storage (Dockge architecture)
 - Docker Compose support with inline editing
+- **Real-time YAML validation** with error, warning, and suggestion feedback
 - Real-time streaming output for all operations
-- Environment variable management
+- Environment variable management with auto-extraction from compose files
 - Clone from Git repositories
 - Convert Docker run commands to compose files
 - Aggregate logs from all stack containers
