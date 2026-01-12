@@ -100,9 +100,10 @@ export default function NotificationsView() {
   const loadHistory = async () => {
     try {
       const response = await notificationsAPI.getHistory();
-      setHistory(response.data);
+      setHistory(response.data || []);
     } catch (error) {
       console.error('Failed to load notification history:', error);
+      setHistory([]);
     }
   };
 
