@@ -256,7 +256,7 @@ export default function StackDetailView() {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -581,8 +581,8 @@ export default function StackDetailView() {
       </div>
 
       {/* Compose File Section */}
-      <Card>
-        <div className="px-6 py-2 border-b border-glass-border flex items-center justify-between">
+      <Card noPadding>
+        <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Compose File</h3>
           <div className="flex space-x-2">
             {isEditingCompose ? (
@@ -601,7 +601,7 @@ export default function StackDetailView() {
             )}
           </div>
         </div>
-        <div className="p-1 space-y-2">
+        <div className="px-6 py-4 space-y-4">
           <CodeMirror
             value={composeContent}
             onChange={(value) => setComposeContent(value)}
@@ -627,8 +627,8 @@ export default function StackDetailView() {
       </Card>
 
       {/* Environment Variables Section */}
-      <Card>
-        <div className="px-6 py-2 border-b border-glass-border flex items-center justify-between">
+      <Card noPadding>
+        <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Environment Variables</h3>
           <div className="flex space-x-2">
             {isEditingEnv ? (
@@ -654,7 +654,7 @@ export default function StackDetailView() {
             )}
           </div>
         </div>
-        <div className="p-1">
+        <div className="px-6 py-4">
           {!isEditingEnv && Object.keys(envVars).length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               No environment variables defined
@@ -693,8 +693,8 @@ ANOTHER_KEY=another_value
       </Card>
 
       {/* Logs Section */}
-      <Card ref={logsRef}>
-        <div className="px-6 py-2 border-b border-glass-border flex items-center justify-between">
+      <Card noPadding ref={logsRef}>
+        <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <h3 className="text-lg font-semibold text-white">Logs</h3>
             {isOperationInProgress && (
@@ -705,7 +705,7 @@ ANOTHER_KEY=another_value
             Refresh Logs
           </Button>
         </div>
-        <div className="p-1">
+        <div className="px-6 py-4">
           <pre
             ref={logsContentRef}
             className="bg-black/50 rounded-lg p-4 overflow-x-auto text-xs font-mono min-h-[400px] max-h-[600px] overflow-y-auto whitespace-pre-wrap"

@@ -1191,10 +1191,10 @@ KEY2=value2
         size="xl"
       >
         {selectedStack && (
-          <div className="space-y-1">
+          <div className="space-y-4">
             {/* Stack Info */}
-            <div className="glass-card p-1">
-              <div className="grid grid-cols-3 gap-2">
+            <div className="glass-card p-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-slate-400">Status</p>
                   <Badge variant={selectedStack.status === 'running' ? 'running' : 'stopped'}>
@@ -1391,7 +1391,7 @@ KEY2=value2
               )}
 
               {activeTab === 'env' && (
-                <div className="space-y-1">
+                <div className="space-y-4">
                   <div className="flex justify-end items-center">
                     {isEditing ? (
                       <div className="flex space-x-2">
@@ -1458,7 +1458,7 @@ ANOTHER_KEY=another_value
               )}
 
               {activeTab === 'logs' && (
-                <div className="space-y-1">
+                <div className="space-y-4">
                   <div className="flex justify-end items-center space-x-2">
                     {isOperationInProgress && (
                       <Badge variant="primary">Auto-refreshing...</Badge>
@@ -1467,7 +1467,7 @@ ANOTHER_KEY=another_value
                       Refresh
                     </Button>
                   </div>
-                  <div className="glass-card bg-black/50 p-1 rounded-lg overflow-auto max-h-[400px]">
+                  <div className="glass-card bg-black/50 p-4 rounded-lg overflow-auto max-h-[400px]">
                     <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap">
                       {logs || 'No logs available'}
                     </pre>

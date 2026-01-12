@@ -555,7 +555,7 @@ export default function ContainersView() {
         title={`Container: ${selectedContainer?.name || 'Details'}`}
         size="xl"
       >
-        <div className="space-y-1">
+        <div className="space-y-4">
           {/* Tabs */}
           <div className="flex space-x-4 border-b border-glass-border">
             {['overview', 'logs', 'stats', 'inspect'].map((tab) => (
@@ -686,7 +686,7 @@ export default function ContainersView() {
                 {containerDetails.ports && Object.keys(containerDetails.ports).length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-slate-400 mb-2">Ports</h3>
-                    <div className="bg-glass-darker rounded-lg p-1">
+                    <div className="bg-glass-darker rounded-lg p-3">
                       {Object.entries(containerDetails.ports).map(([key, bindings]) => (
                         <div key={key} className="text-sm text-slate-300">
                           {key} → {bindings?.[0]?.HostPort || 'not bound'}
@@ -700,7 +700,7 @@ export default function ContainersView() {
                 {containerDetails.networks && Object.keys(containerDetails.networks).length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-slate-400 mb-2">Networks</h3>
-                    <div className="bg-glass-darker rounded-lg p-1">
+                    <div className="bg-glass-darker rounded-lg p-3">
                       {Object.entries(containerDetails.networks).map(([name, network]) => (
                         <div key={name} className="text-sm text-slate-300">
                           {name}: {network.IPAddress || 'N/A'}
@@ -714,7 +714,7 @@ export default function ContainersView() {
                 {containerDetails.mounts && containerDetails.mounts.length > 0 && (
                   <div>
                     <h3 className="text-sm font-medium text-slate-400 mb-2">Volumes</h3>
-                    <div className="bg-glass-darker rounded-lg p-1 space-y-1">
+                    <div className="bg-glass-darker rounded-lg p-3 space-y-1">
                       {containerDetails.mounts.map((mount, index) => (
                         <div key={index} className="text-sm text-slate-300">
                           {mount.Source} → {mount.Destination} ({mount.Mode})
@@ -795,7 +795,7 @@ export default function ContainersView() {
 
             {/* Inspect Tab */}
             {activeTab === 'inspect' && containerDetails && (
-              <div className="bg-black/50 rounded-lg p-2 overflow-auto max-h-96">
+              <div className="bg-black/50 rounded-lg p-4 overflow-auto max-h-96">
                 <pre className="text-xs text-slate-300 font-mono">
                   {JSON.stringify(containerDetails, null, 2)}
                 </pre>
@@ -816,7 +816,7 @@ export default function ContainersView() {
         }}
         title="Remove Container"
       >
-        <div className="space-y-2">
+        <div className="space-y-4">
           <p className="text-slate-300">
             Are you sure you want to remove container{' '}
             <span className="font-semibold text-white">
@@ -827,7 +827,7 @@ export default function ContainersView() {
           <p className="text-sm text-slate-400">
             This action cannot be undone. If the container is running, you'll need to force remove it.
           </p>
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-2">
             <Button
               variant="secondary"
               onClick={() => {
@@ -868,7 +868,7 @@ export default function ContainersView() {
         title={`Update Container: ${updateContainerName}`}
         size="xl"
       >
-        <div className="space-y-2">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-slate-300 text-sm">
               Docker pull output:
@@ -877,7 +877,7 @@ export default function ContainersView() {
 
           <div
             ref={updateContentRef}
-            className="bg-black/80 rounded-lg p-2 border border-slate-700 overflow-auto max-h-[500px]"
+            className="bg-black/80 rounded-lg p-4 border border-slate-700 overflow-auto max-h-[500px]"
           >
             <pre className="text-xs font-mono whitespace-pre-wrap">
               <span className="text-green-400">{updateOutput || 'Initializing...'}</span>

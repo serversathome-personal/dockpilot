@@ -70,7 +70,7 @@ export default function Modal({
                 )}
 
                 {/* Content */}
-                <div className="p-1">
+                <div className="p-6">
                   {children}
                 </div>
               </Dialog.Panel>
