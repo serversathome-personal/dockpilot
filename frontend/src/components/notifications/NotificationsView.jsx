@@ -188,7 +188,7 @@ export default function NotificationsView() {
       setTestingIndex(index);
       const response = await notificationsAPI.testUrl(url);
 
-      if (response.success) {
+      if (response?.success) {
         addNotification({
           type: 'success',
           message: 'Test notification sent successfully!',
@@ -196,14 +196,14 @@ export default function NotificationsView() {
       } else {
         addNotification({
           type: 'error',
-          message: response.message || 'Failed to send test notification',
+          message: response?.message || 'Failed to send test notification',
         });
       }
     } catch (error) {
       console.error('Failed to test URL:', error);
       addNotification({
         type: 'error',
-        message: error.message || 'Failed to send test notification',
+        message: error.response?.data?.message || error.message || 'Failed to send test notification',
       });
     } finally {
       setIsTesting(false);
@@ -339,6 +339,7 @@ export default function NotificationsView() {
                   onClick={() => handleTestUrl(url, index)}
                   isLoading={isTesting && testingIndex === index}
                   disabled={isTesting}
+                  title="Send test notification"
                 >
                   <PaperAirplaneIcon className="w-4 h-4" />
                 </Button>
@@ -346,6 +347,7 @@ export default function NotificationsView() {
                   variant="danger"
                   size="sm"
                   onClick={() => handleRemoveUrl(index)}
+                  title="Remove"
                 >
                   <TrashIcon className="w-4 h-4" />
                 </Button>

@@ -26,7 +26,7 @@ export const notificationsAPI = {
    */
   testUrl: async (url) => {
     const response = await apiClient.post('/notifications/test', { url });
-    return response.data;
+    return response.data || { success: false, message: 'No response from server' };
   },
 
   /**
