@@ -631,6 +631,65 @@ export default function StackDetailView() {
         <div className="px-6 py-4 border-b border-glass-border flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">Environment Variables</h3>
           <div className="flex space-x-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                // Extract environment variables from compose file
+                const envVarPattern = /\$\{([^}]+)\}|\$([A-Z_][A-Z0-9_]*)/g;
+                const matches = composeContent.matchAll(envVarPattern);
+                const extractedVars = new Set();
+
+                for (const match of matches) {
+                  const varName = match[1] || match[2];
+                  if (varName) {
+                    // Handle ${VAR:-default} and ${VAR:?error} syntax
+                    const cleanVarName = varName.split(/[:-]/)[0];
+                    extractedVars.add(cleanVarName);
+                  }
+                }
+
+                if (extractedVars.size > 0) {
+                  // Get existing env vars as a map
+                  const existingVars = {};
+                  envVarsText.split('\n').forEach(line => {
+                    const trimmed = line.trim();
+                    if (trimmed && !trimmed.startsWith('#')) {
+                      const eqIndex = trimmed.indexOf('=');
+                      if (eqIndex > 0) {
+                        const key = trimmed.substring(0, eqIndex).trim();
+                        const value = trimmed.substring(eqIndex + 1).trim();
+                        existingVars[key] = value;
+                      }
+                    }
+                  });
+
+                  // Merge: keep existing values, add new vars with empty value
+                  const mergedVars = { ...existingVars };
+                  extractedVars.forEach(varName => {
+                    if (!(varName in mergedVars)) {
+                      mergedVars[varName] = '';
+                    }
+                  });
+
+                  const envText = Object.entries(mergedVars)
+                    .map(([k, v]) => `${k}=${v}`)
+                    .join('\n');
+                  setEnvVarsText(envText);
+                  setIsEditingEnv(true);
+                  addNotification({
+                    type: 'success',
+                    message: `Extracted ${extractedVars.size} variable(s) from compose file`,
+                  });
+                } else {
+                  addNotification({
+                    type: 'info',
+                    message: 'No environment variables found in compose file',
+                  });
+                }
+              }}
+            >
+              Extract from Compose
+            </Button>
             {isEditingEnv ? (
               <>
                 <Button variant="secondary" onClick={() => {
