@@ -49,11 +49,43 @@ export default function NotificationsView() {
     loadSettings();
   }, []);
 
+  const defaultSettings = {
+    enabled: false,
+    appriseUrls: [],
+    triggers: {
+      containerStopped: true,
+      containerHealthUnhealthy: true,
+      stackStarted: true,
+      stackStopped: true,
+      imageUpdateAvailable: false,
+      imageUpdated: true,
+      dockpilotUpdateAvailable: true,
+    },
+    quietHours: {
+      enabled: false,
+      start: '22:00',
+      end: '08:00',
+    },
+  };
+
   const loadSettings = async () => {
     try {
       setIsLoading(true);
       const response = await notificationsAPI.getSettings();
-      setSettings(response.data);
+      // Merge response with defaults to ensure all properties exist
+      const data = response.data || {};
+      setSettings({
+        ...defaultSettings,
+        ...data,
+        triggers: {
+          ...defaultSettings.triggers,
+          ...(data.triggers || {}),
+        },
+        quietHours: {
+          ...defaultSettings.quietHours,
+          ...(data.quietHours || {}),
+        },
+      });
     } catch (error) {
       console.error('Failed to load notification settings:', error);
       addNotification({
