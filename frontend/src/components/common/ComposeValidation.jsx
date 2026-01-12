@@ -129,7 +129,12 @@ export default function ComposeValidation({ yaml, onGoToLine }) {
             >
               {getIssueIcon(issue.type)}
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-white">{issue.message}</p>
+                <p className="text-xs text-white">
+                  {issue.line && (
+                    <span className="text-slate-400 mr-1">Line {issue.line}:</span>
+                  )}
+                  {issue.message}
+                </p>
               </div>
               {issue.line && onGoToLine && (
                 <button
@@ -138,8 +143,9 @@ export default function ComposeValidation({ yaml, onGoToLine }) {
                     onGoToLine(issue.line);
                   }}
                   className="px-2 py-0.5 text-xs text-primary hover:text-primary-light hover:bg-primary/10 rounded transition-colors flex-shrink-0"
+                  title="Go to line"
                 >
-                  Line {issue.line}
+                  Go to
                 </button>
               )}
             </div>
