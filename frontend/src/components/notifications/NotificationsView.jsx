@@ -167,7 +167,7 @@ export default function NotificationsView() {
     }
   };
 
-  const handleAddUrl = () => {
+  const handleAddUrl = async () => {
     if (!newUrl.trim()) {
       addNotification({
         type: 'error',
@@ -176,18 +176,42 @@ export default function NotificationsView() {
       return;
     }
 
-    setSettings({
+    const updatedSettings = {
       ...settings,
       appriseUrls: [...settings.appriseUrls, newUrl.trim()],
-    });
+    };
+    setSettings(updatedSettings);
     setNewUrl('');
+
+    // Save immediately (don't wait for debounce)
+    try {
+      setSaveStatus('saving');
+      await notificationsAPI.saveSettings(updatedSettings);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (error) {
+      console.error('Failed to save after adding URL:', error);
+      setSaveStatus('error');
+    }
   };
 
-  const handleRemoveUrl = (index) => {
-    setSettings({
+  const handleRemoveUrl = async (index) => {
+    const updatedSettings = {
       ...settings,
       appriseUrls: settings.appriseUrls.filter((_, i) => i !== index),
-    });
+    };
+    setSettings(updatedSettings);
+
+    // Save immediately (don't wait for debounce)
+    try {
+      setSaveStatus('saving');
+      await notificationsAPI.saveSettings(updatedSettings);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(null), 2000);
+    } catch (error) {
+      console.error('Failed to save after removing URL:', error);
+      setSaveStatus('error');
+    }
   };
 
   const handleTestUrl = async (url, index) => {
