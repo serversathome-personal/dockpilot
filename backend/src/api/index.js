@@ -7,6 +7,7 @@ import networksRoutes from './routes/networks.js';
 import volumesRoutes from './routes/volumes.js';
 import updatesRoutes from './routes/updates.js';
 import eventsRoutes from './routes/events.js';
+import notificationsRoutes from './routes/notifications.js';
 
 const router = express.Router();
 
@@ -28,5 +29,6 @@ router.use('/networks', networksRoutes);
 router.use('/volumes', volumesRoutes);
 router.use('/updates', updatesRoutes);
 router.use('/events', eventsRoutes);
+router.use('/notifications', notificationsRoutes);
 
 export default router;

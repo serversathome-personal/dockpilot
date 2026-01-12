@@ -66,6 +66,19 @@
 - Color-coded actions (start, stop, create, destroy)
 - Live streaming mode with auto-refresh
 
+### 🔔 Push Notifications (Apprise)
+- Supports 80+ notification services (Discord, Slack, Telegram, Email, Pushover, etc.)
+- Configurable notification triggers:
+  - Container stopped unexpectedly
+  - Container health check failed
+  - Stack started/stopped
+  - Image updates available
+  - Image updated successfully
+  - DockPilot update available
+- Quiet hours support to suppress notifications during specified times
+- Notification history tracking
+- Test notifications before saving
+
 ### 🎨 Modern UI
 - Dark theme with smoked glass effects
 - Responsive design

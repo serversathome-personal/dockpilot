@@ -8,6 +8,7 @@ import {
   CircleStackIcon,
   ArrowPathIcon,
   ClipboardDocumentListIcon,
+  BellIcon,
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Volumes', to: '/volumes', icon: CircleStackIcon },
   { name: 'Updates', to: '/updates', icon: ArrowPathIcon },
   { name: 'Event Log', to: '/events', icon: ClipboardDocumentListIcon },
+  { name: 'Notifications', to: '/notifications', icon: BellIcon },
 ];
 
 export default function Sidebar() {
@@ -60,7 +62,7 @@ export default function Sidebar() {
         {/* Footer info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-glass-border">
           <div className="flex items-center justify-center text-xs text-slate-400">
-            <span>v1.0.19</span>
+            <span>v1.0.20</span>
           </div>
         </div>
       </div>

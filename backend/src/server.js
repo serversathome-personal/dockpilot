@@ -93,6 +93,12 @@ const startServer = async () => {
         version: version.version,
         apiVersion: version.apiVersion,
       });
+
+      // Initialize notification service and start event listener
+      const { default: notificationService } = await import('./services/notification.service.js');
+      await notificationService.initialize();
+      await notificationService.startEventListener();
+      logger.info('Notification service initialized');
     } catch (error) {
       logger.error('Failed to connect to Docker:', error);
       logger.warn('Docker is not available. Some features may not work.');

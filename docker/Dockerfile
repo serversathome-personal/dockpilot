@@ -21,14 +21,17 @@ RUN npm run build --workspace=frontend
 # Stage 2: Production Image
 FROM node:20-alpine
 
-# Install Docker CLI, Docker Compose, and utilities
+# Install Docker CLI, Docker Compose, Python/Apprise, and utilities
 RUN apk add --no-cache \
     docker-cli \
     docker-cli-compose \
     curl \
     ca-certificates \
     procps \
-    su-exec
+    su-exec \
+    python3 \
+    py3-pip \
+    && pip3 install --no-cache-dir --break-system-packages apprise
 
 # Create app directory
 WORKDIR /app
