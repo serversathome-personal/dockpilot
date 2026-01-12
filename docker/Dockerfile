@@ -27,7 +27,8 @@ RUN apk add --no-cache \
     docker-cli-compose \
     curl \
     ca-certificates \
-    procps
+    procps \
+    su-exec
 
 # Create app directory
 WORKDIR /app

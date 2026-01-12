@@ -25,10 +25,7 @@ if ! getent passwd dockpilot >/dev/null 2>&1; then
     adduser -D -u "$PUID" -G dockpilot dockpilot
 fi
 
-# Change ownership of application directories to the specified user
-echo "Setting ownership of /stacks to $PUID:$PGID"
-chown -R "$PUID:$PGID" /stacks || echo "Warning: Could not change ownership of /stacks"
-
+# Change ownership of internal directories (NOT /stacks - that's a bind mount and we don't modify host permissions)
 echo "Setting ownership of /data to $PUID:$PGID"
 chown -R "$PUID:$PGID" /data || echo "Warning: Could not change ownership of /data"
 
