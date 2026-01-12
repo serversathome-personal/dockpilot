@@ -7,4 +7,5 @@ export const dashboardAPI = {
   getCpuHistory: () => apiClient.get('/dashboard/cpu-history'),
   getMemoryHistory: () => apiClient.get('/dashboard/memory-history'),
   getNetworkHistory: () => apiClient.get('/dashboard/network-history'),
+  getVersion: () => apiClient.get('/dashboard/version'),
 };

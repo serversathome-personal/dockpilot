@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   ChartBarIcon,
@@ -10,6 +11,7 @@ import {
   ClipboardDocumentListIcon,
   BellIcon,
 } from '@heroicons/react/24/outline';
+import { dashboardAPI } from '../../api/dashboard.api';
 
 const navigation = [
   { name: 'Dashboard', to: '/', icon: ChartBarIcon },
@@ -24,6 +26,21 @@ const navigation = [
 ];
 
 export default function Sidebar() {
+  const [version, setVersion] = useState('...');
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const response = await dashboardAPI.getVersion();
+        setVersion(response?.data?.version || '?.?.?');
+      } catch (error) {
+        console.error('Failed to fetch version:', error);
+        setVersion('?.?.?');
+      }
+    };
+    fetchVersion();
+  }, []);
+
   return (
     <div className="w-64 flex-shrink-0">
       <div className="h-full bg-glass-darker backdrop-blur-xl border-r border-glass-border">
@@ -62,7 +79,7 @@ export default function Sidebar() {
         {/* Footer info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-glass-border">
           <div className="flex items-center justify-center text-xs text-slate-400">
-            <span>v1.0.33</span>
+            <span>v{version}</span>
           </div>
         </div>
       </div>

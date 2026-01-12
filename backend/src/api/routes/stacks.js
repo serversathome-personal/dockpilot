@@ -3,6 +3,7 @@ import path from 'path';
 import { asyncHandler, ApiError } from '../../middleware/error.middleware.js';
 import { validate, schemas } from '../../middleware/validation.middleware.js';
 import stackService from '../../services/stack.service.js';
+import notificationService from '../../services/notification.service.js';
 import config from '../../config/env.js';
 import logger from '../../utils/logger.js';
 
@@ -148,6 +149,11 @@ router.post('/:name/start', asyncHandler(async (req, res) => {
 
   const result = await stackService.startStack(name);
 
+  // Send notification (don't await to avoid blocking response)
+  notificationService.notifyStackStarted(name).catch(err => {
+    logger.error(`Failed to send stack started notification: ${err.message}`);
+  });
+
   res.json({
     success: true,
     message: `Stack ${name} started successfully`,
@@ -165,6 +171,11 @@ router.post('/:name/stop', asyncHandler(async (req, res) => {
 
   const result = await stackService.stopStack(name);
 
+  // Send notification (don't await to avoid blocking response)
+  notificationService.notifyStackStopped(name).catch(err => {
+    logger.error(`Failed to send stack stopped notification: ${err.message}`);
+  });
+
   res.json({
     success: true,
     message: `Stack ${name} stopped successfully`,
@@ -181,6 +192,11 @@ router.post('/:name/down', asyncHandler(async (req, res) => {
   logger.info(`Downing stack: ${name}`);
 
   const result = await stackService.downStack(name);
+
+  // Send notification (don't await to avoid blocking response)
+  notificationService.notifyStackStopped(name).catch(err => {
+    logger.error(`Failed to send stack stopped notification: ${err.message}`);
+  });
 
   res.json({
     success: true,
@@ -325,6 +341,11 @@ router.get('/:name/stream-start', asyncHandler(async (req, res) => {
       }
     );
 
+    // Send notification (don't await to avoid blocking response)
+    notificationService.notifyStackStarted(name).catch(err => {
+      logger.error(`Failed to send stack started notification: ${err.message}`);
+    });
+
     // Send completion event
     res.write(`data: ${JSON.stringify({ type: 'done', data: 'Stack started successfully' })}\n\n`);
     res.end();
@@ -396,6 +417,11 @@ router.get('/:name/stream-down', asyncHandler(async (req, res) => {
         res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
       }
     );
+
+    // Send notification (don't await to avoid blocking response)
+    notificationService.notifyStackStopped(name).catch(err => {
+      logger.error(`Failed to send stack stopped notification: ${err.message}`);
+    });
 
     // Send completion event
     res.write(`data: ${JSON.stringify({ type: 'done', data: 'Stack downed successfully' })}\n\n`);

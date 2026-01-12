@@ -5,6 +5,7 @@
 
 import { spawn } from 'child_process';
 import configStore from '../storage/config.store.js';
+import versionService from './version.service.js';
 import logger from '../utils/logger.js';
 
 class NotificationService {
@@ -13,6 +14,7 @@ class NotificationService {
     this.notificationHistory = [];
     this.maxHistorySize = 100;
     this.containerStates = new Map(); // Track container states for unexpected stop detection
+    this.versionCheckInterval = null; // Daily version check interval
   }
 
   async initialize() {
@@ -21,9 +23,69 @@ class NotificationService {
       const settings = await this.getSettings();
       logger.info('Notification service initialized', { enabled: settings.enabled });
       this.isInitialized = true;
+
+      // Start daily version check (delayed by 1 minute after startup)
+      this.startVersionCheckScheduler();
     } catch (error) {
       logger.error('Failed to initialize notification service:', error);
     }
+  }
+
+  /**
+   * Start the daily DockPilot version check scheduler
+   */
+  startVersionCheckScheduler() {
+    // Check after 1 minute delay on startup
+    const initialDelay = 60 * 1000; // 1 minute
+    const dailyInterval = 24 * 60 * 60 * 1000; // 24 hours
+
+    logger.info('Starting DockPilot version check scheduler', {
+      initialDelayMinutes: 1,
+      intervalHours: 24,
+    });
+
+    // Initial check after delay
+    setTimeout(async () => {
+      await this.checkDockpilotVersion();
+
+      // Set up daily interval
+      this.versionCheckInterval = setInterval(async () => {
+        await this.checkDockpilotVersion();
+      }, dailyInterval);
+    }, initialDelay);
+  }
+
+  /**
+   * Check for DockPilot updates and notify if available
+   */
+  async checkDockpilotVersion() {
+    logger.info('Checking for DockPilot updates...');
+
+    const result = await versionService.checkAndNotify(
+      async (currentVersion, newVersion) => {
+        await this.notifyDockpilotUpdate(currentVersion, newVersion);
+      }
+    );
+
+    if (result.error) {
+      logger.warn('DockPilot version check failed', { error: result.error });
+    } else if (result.hasUpdate) {
+      if (result.alreadyNotified) {
+        logger.info('DockPilot update available (already notified)', {
+          current: result.currentVersion,
+          latest: result.latestVersion,
+        });
+      } else if (result.notified) {
+        logger.info('DockPilot update notification sent', {
+          current: result.currentVersion,
+          latest: result.latestVersion,
+        });
+      }
+    } else {
+      logger.info('DockPilot is up to date', { version: result.currentVersion });
+    }
+
+    return result;
   }
 
   /**

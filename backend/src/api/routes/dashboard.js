@@ -3,6 +3,7 @@ import { asyncHandler } from '../../middleware/error.middleware.js';
 import dockerService from '../../services/docker.service.js';
 import stackService from '../../services/stack.service.js';
 import statsService from '../../services/stats.service.js';
+import versionService from '../../services/version.service.js';
 import logger from '../../utils/logger.js';
 
 const router = express.Router();
@@ -163,6 +164,21 @@ router.get('/network-history', asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: history,
+  });
+}));
+
+/**
+ * GET /api/dashboard/version
+ * Get DockPilot version info
+ */
+router.get('/version', asyncHandler(async (req, res) => {
+  const version = versionService.getCurrentVersion();
+
+  res.json({
+    success: true,
+    data: {
+      version,
+    },
   });
 }));
 
