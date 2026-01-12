@@ -54,6 +54,7 @@ export default function NotificationsView() {
 
   const isInitialLoad = useRef(true);
   const saveTimeoutRef = useRef(null);
+  const [saveStatus, setSaveStatus] = useState(null); // null, 'saving', 'saved', 'error'
 
   useEffect(() => {
     loadSettings();
@@ -72,13 +73,20 @@ export default function NotificationsView() {
       clearTimeout(saveTimeoutRef.current);
     }
 
+    // Show saving indicator
+    setSaveStatus('saving');
+
     // Debounce save by 500ms
     saveTimeoutRef.current = setTimeout(async () => {
       try {
         setIsSaving(true);
         await notificationsAPI.saveSettings(settings);
+        setSaveStatus('saved');
+        // Clear "saved" status after 2 seconds
+        setTimeout(() => setSaveStatus(null), 2000);
       } catch (error) {
         console.error('Failed to auto-save settings:', error);
+        setSaveStatus('error');
         addNotification({
           type: 'error',
           message: 'Failed to save notification settings',
@@ -260,10 +268,22 @@ export default function NotificationsView() {
             Configure push notifications via Apprise
           </p>
         </div>
-        {isSaving && (
+        {saveStatus === 'saving' && (
           <div className="flex items-center text-slate-400 text-sm">
             <LoadingSpinner size="sm" />
             <span className="ml-2">Saving...</span>
+          </div>
+        )}
+        {saveStatus === 'saved' && (
+          <div className="flex items-center text-success text-sm">
+            <CheckCircleIcon className="w-5 h-5" />
+            <span className="ml-2">Saved</span>
+          </div>
+        )}
+        {saveStatus === 'error' && (
+          <div className="flex items-center text-danger text-sm">
+            <XCircleIcon className="w-5 h-5" />
+            <span className="ml-2">Save failed</span>
           </div>
         )}
       </div>
