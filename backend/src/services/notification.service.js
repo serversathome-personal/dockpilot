@@ -40,6 +40,7 @@ class NotificationService {
         stackStopped: true,
         imageUpdateAvailable: false,
         imageUpdated: true,
+        imageUpdateFailed: true,
         dockpilotUpdateAvailable: true,
       },
       quietHours: {
@@ -334,6 +335,20 @@ class NotificationService {
       `Image "${imageName}" has been updated${containers}`,
       'success',
       'imageUpdated'
+    );
+  }
+
+  /**
+   * Notify that an image update failed
+   */
+  async notifyImageUpdateFailed(imageName, error = '') {
+    const errorMsg = error ? `\nError: ${error}` : '';
+
+    await this.send(
+      `Image Update Failed`,
+      `Failed to update image "${imageName}"${errorMsg}`,
+      'error',
+      'imageUpdateFailed'
     );
   }
 

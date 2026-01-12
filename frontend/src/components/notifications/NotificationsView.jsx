@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '../../store';
 import { notificationsAPI } from '../../api/notifications.api';
 import Card from '../common/Card';
@@ -13,6 +13,9 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   InformationCircleIcon,
+  MagnifyingGlassIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 
 export default function NotificationsView() {
@@ -32,6 +35,7 @@ export default function NotificationsView() {
       stackStopped: true,
       imageUpdateAvailable: false,
       imageUpdated: true,
+      imageUpdateFailed: true,
       dockpilotUpdateAvailable: true,
     },
     quietHours: {
@@ -43,11 +47,52 @@ export default function NotificationsView() {
 
   const [newUrl, setNewUrl] = useState('');
   const [history, setHistory] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const historyPerPage = 20;
+
+  const isInitialLoad = useRef(true);
+  const saveTimeoutRef = useRef(null);
 
   useEffect(() => {
     loadSettings();
+    loadHistory();
   }, []);
+
+  // Auto-save settings when they change (with debounce)
+  useEffect(() => {
+    // Skip auto-save on initial load
+    if (isInitialLoad.current) {
+      return;
+    }
+
+    // Clear any existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce save by 500ms
+    saveTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsSaving(true);
+        await notificationsAPI.saveSettings(settings);
+      } catch (error) {
+        console.error('Failed to auto-save settings:', error);
+        addNotification({
+          type: 'error',
+          message: 'Failed to save notification settings',
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [settings]);
 
   const defaultSettings = {
     enabled: false,
@@ -59,6 +104,7 @@ export default function NotificationsView() {
       stackStopped: true,
       imageUpdateAvailable: false,
       imageUpdated: true,
+      imageUpdateFailed: true,
       dockpilotUpdateAvailable: true,
     },
     quietHours: {
@@ -86,12 +132,17 @@ export default function NotificationsView() {
           ...(data.quietHours || {}),
         },
       });
+      // Mark initial load as complete after a short delay to allow state to settle
+      setTimeout(() => {
+        isInitialLoad.current = false;
+      }, 100);
     } catch (error) {
       console.error('Failed to load notification settings:', error);
       addNotification({
         type: 'error',
         message: 'Failed to load notification settings',
       });
+      isInitialLoad.current = false;
     } finally {
       setIsLoading(false);
     }
@@ -104,25 +155,6 @@ export default function NotificationsView() {
     } catch (error) {
       console.error('Failed to load notification history:', error);
       setHistory([]);
-    }
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      setIsSaving(true);
-      await notificationsAPI.saveSettings(settings);
-      addNotification({
-        type: 'success',
-        message: 'Notification settings saved successfully',
-      });
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-      addNotification({
-        type: 'error',
-        message: error.message || 'Failed to save notification settings',
-      });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -195,6 +227,7 @@ export default function NotificationsView() {
     stackStopped: 'Stack stopped',
     imageUpdateAvailable: 'Image updates available',
     imageUpdated: 'Image updated',
+    imageUpdateFailed: 'Image update failed',
     dockpilotUpdateAvailable: 'DockPilot update available',
   };
 
@@ -205,6 +238,7 @@ export default function NotificationsView() {
     stackStopped: 'Notify when a stack is stopped',
     imageUpdateAvailable: 'Notify when new image versions are detected',
     imageUpdated: 'Notify when an image is successfully updated',
+    imageUpdateFailed: 'Notify when an image update fails',
     dockpilotUpdateAvailable: 'Notify when a new version of DockPilot is available',
   };
 
@@ -225,13 +259,12 @@ export default function NotificationsView() {
             Configure push notifications via Apprise
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={handleSaveSettings}
-          isLoading={isSaving}
-        >
-          Save Settings
-        </Button>
+        {isSaving && (
+          <div className="flex items-center text-slate-400 text-sm">
+            <LoadingSpinner size="sm" />
+            <span className="ml-2">Saving...</span>
+          </div>
+        )}
       </div>
 
       {/* Enable/Disable Toggle */}
@@ -436,80 +469,131 @@ export default function NotificationsView() {
       <Card
         title="Notification History"
         headerAction={
-          <div className="flex space-x-2">
+          history.length > 0 && (
             <Button
-              variant="secondary"
+              variant="danger"
               size="sm"
-              onClick={() => {
-                if (!showHistory) {
-                  loadHistory();
-                }
-                setShowHistory(!showHistory);
+              onClick={async () => {
+                await notificationsAPI.clearHistory();
+                setHistory([]);
+                setHistoryPage(1);
+                addNotification({
+                  type: 'success',
+                  message: 'Notification history cleared',
+                });
               }}
             >
-              {showHistory ? 'Hide History' : 'Show History'}
+              Clear History
             </Button>
-            {showHistory && history.length > 0 && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={async () => {
-                  await notificationsAPI.clearHistory();
-                  setHistory([]);
-                  addNotification({
-                    type: 'success',
-                    message: 'Notification history cleared',
-                  });
-                }}
-              >
-                Clear
-              </Button>
-            )}
-          </div>
+          )
         }
       >
-        {showHistory ? (
-          history.length > 0 ? (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {history.map((item, index) => (
-                <div
-                  key={index}
-                  className="p-3 bg-glass-darker rounded-lg border border-glass-border"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center space-x-2">
-                      {item.results?.some(r => r.success) ? (
-                        <CheckCircleIcon className="w-5 h-5 text-success" />
-                      ) : (
-                        <XCircleIcon className="w-5 h-5 text-danger" />
-                      )}
-                      <div>
-                        <h4 className="text-white font-medium">{item.title}</h4>
-                        <p className="text-xs text-slate-400">{item.body}</p>
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input
+              type="text"
+              value={historySearch}
+              onChange={(e) => {
+                setHistorySearch(e.target.value);
+                setHistoryPage(1);
+              }}
+              placeholder="Search notifications..."
+              className="glass-input w-full pl-10"
+            />
+          </div>
+
+          {/* History List */}
+          {(() => {
+            const filteredHistory = history.filter(item => {
+              if (!historySearch) return true;
+              const search = historySearch.toLowerCase();
+              return (
+                item.title?.toLowerCase().includes(search) ||
+                item.body?.toLowerCase().includes(search) ||
+                item.type?.toLowerCase().includes(search)
+              );
+            });
+
+            const totalPages = Math.ceil(filteredHistory.length / historyPerPage);
+            const startIndex = (historyPage - 1) * historyPerPage;
+            const paginatedHistory = filteredHistory.slice(startIndex, startIndex + historyPerPage);
+
+            if (filteredHistory.length === 0) {
+              return (
+                <div className="text-center py-8 text-slate-400">
+                  {historySearch ? 'No notifications match your search' : 'No notification history yet'}
+                </div>
+              );
+            }
+
+            return (
+              <>
+                <div className="space-y-2">
+                  {paginatedHistory.map((item, index) => (
+                    <div
+                      key={startIndex + index}
+                      className="p-3 bg-glass-darker rounded-lg border border-glass-border"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2">
+                          {item.results?.some(r => r.success) ? (
+                            <CheckCircleIcon className="w-5 h-5 text-success flex-shrink-0" />
+                          ) : (
+                            <XCircleIcon className="w-5 h-5 text-danger flex-shrink-0" />
+                          )}
+                          <div>
+                            <h4 className="text-white font-medium">{item.title}</h4>
+                            <p className="text-xs text-slate-400">{item.body}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-4">
+                          <Badge variant={item.type === 'error' ? 'danger' : item.type === 'warning' ? 'warning' : 'primary'}>
+                            {item.type}
+                          </Badge>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {new Date(item.timestamp).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={item.type === 'error' ? 'danger' : item.type === 'warning' ? 'warning' : 'primary'}>
-                        {item.type}
-                      </Badge>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {new Date(item.timestamp).toLocaleString()}
-                      </p>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-4 border-t border-glass-border">
+                    <p className="text-sm text-slate-400">
+                      Showing {startIndex + 1}-{Math.min(startIndex + historyPerPage, filteredHistory.length)} of {filteredHistory.length}
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                        disabled={historyPage === 1}
+                      >
+                        <ChevronLeftIcon className="w-4 h-4" />
+                      </Button>
+                      <span className="text-sm text-slate-300 px-2">
+                        Page {historyPage} of {totalPages}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setHistoryPage(p => Math.min(totalPages, p + 1))}
+                        disabled={historyPage === totalPages}
+                      >
+                        <ChevronRightIcon className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-slate-400">
-              No notification history yet
-            </div>
-          )
-        ) : (
-          <div className="text-center py-4 text-slate-400">
-            Click "Show History" to view recent notifications
-          </div>
-        )}
+                )}
+              </>
+            );
+          })()}
+        </div>
       </Card>
     </div>
   );
