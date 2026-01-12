@@ -126,7 +126,9 @@ export default function NotificationsView() {
   const loadSettings = async () => {
     try {
       setIsLoading(true);
-      const data = await notificationsAPI.getSettings() || {};
+      const response = await notificationsAPI.getSettings() || {};
+      // Backend returns { success: true, data: {...} }, extract the data
+      const data = response.data || response || {};
       const mergedSettings = {
         ...defaultSettings,
         ...data,
@@ -159,7 +161,8 @@ export default function NotificationsView() {
   const loadHistory = async () => {
     try {
       const response = await notificationsAPI.getHistory();
-      setHistory(response || []);
+      // Backend returns { success: true, data: [...] }
+      setHistory(response?.data || []);
     } catch (error) {
       console.error('Failed to load notification history:', error);
       setHistory([]);
