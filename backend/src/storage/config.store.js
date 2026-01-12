@@ -7,7 +7,15 @@ class ConfigStore {
   constructor() {
     this.dataDir = config.storage.dataDir;
     this.configFile = path.join(this.dataDir, 'config.json');
-    this.initialize();
+    this.initPromise = this.initialize();
+    logger.info('ConfigStore initializing', { dataDir: this.dataDir, configFile: this.configFile });
+  }
+
+  /**
+   * Wait for initialization to complete
+   */
+  async ensureInitialized() {
+    await this.initPromise;
   }
 
   /**
@@ -17,6 +25,7 @@ class ConfigStore {
     try {
       // Ensure data directory exists
       await fs.ensureDir(this.dataDir);
+      logger.info('Config data directory ensured', { dataDir: this.dataDir });
 
       // Create default config if it doesn't exist
       if (!(await fs.pathExists(this.configFile))) {
@@ -32,8 +41,10 @@ class ConfigStore {
             stacks: [],
             containers: [],
           },
-        });
+        }, true); // Skip ensureInitialized for bootstrap
         logger.info('Created default configuration file');
+      } else {
+        logger.info('Config file already exists', { configFile: this.configFile });
       }
     } catch (error) {
       logger.error('Failed to initialize config store:', error);
@@ -46,6 +57,7 @@ class ConfigStore {
    * @returns {Promise<Object>} Configuration object
    */
   async load() {
+    await this.ensureInitialized();
     try {
       const data = await fs.readJson(this.configFile);
       return data;
@@ -58,12 +70,16 @@ class ConfigStore {
   /**
    * Save configuration to file
    * @param {Object} config - Configuration object
+   * @param {boolean} skipInit - Skip initialization check (for bootstrap)
    * @returns {Promise<void>}
    */
-  async save(config) {
+  async save(config, skipInit = false) {
+    if (!skipInit) {
+      await this.ensureInitialized();
+    }
     try {
       await fs.writeJson(this.configFile, config, { spaces: 2 });
-      logger.info('Configuration saved successfully');
+      logger.info('Configuration saved successfully', { file: this.configFile });
     } catch (error) {
       logger.error('Failed to save configuration:', error);
       throw new Error('Failed to save configuration');
@@ -76,6 +92,7 @@ class ConfigStore {
    * @returns {Promise<*>} Configuration value
    */
   async get(key) {
+    await this.ensureInitialized();
     try {
       const config = await this.load();
       const keys = key.split('.');
@@ -85,6 +102,7 @@ class ConfigStore {
         if (value && typeof value === 'object' && k in value) {
           value = value[k];
         } else {
+          logger.debug(`Config key "${key}" not found`);
           return undefined;
         }
       }
@@ -103,6 +121,7 @@ class ConfigStore {
    * @returns {Promise<void>}
    */
   async set(key, value) {
+    await this.ensureInitialized();
     try {
       const config = await this.load();
       const keys = key.split('.');
@@ -118,6 +137,7 @@ class ConfigStore {
 
       target[lastKey] = value;
       await this.save(config);
+      logger.info(`Configuration key "${key}" set successfully`);
     } catch (error) {
       logger.error(`Failed to set configuration key "${key}":`, error);
       throw error;

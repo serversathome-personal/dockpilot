@@ -51,15 +51,30 @@ class NotificationService {
     };
 
     const settings = await configStore.get('notifications') || defaults;
-    return { ...defaults, ...settings };
+    const merged = { ...defaults, ...settings };
+    logger.info('Loading notification settings', {
+      hasStoredSettings: !!settings,
+      appriseUrlCount: merged.appriseUrls?.length || 0
+    });
+    return merged;
   }
 
   /**
    * Save notification settings
    */
   async saveSettings(settings) {
+    logger.info('Saving notification settings', {
+      appriseUrlCount: settings.appriseUrls?.length || 0,
+      urls: settings.appriseUrls?.map(u => u.substring(0, 30) + '...')
+    });
     await configStore.set('notifications', settings);
-    logger.info('Notification settings saved');
+
+    // Verify the save worked
+    const verified = await configStore.get('notifications');
+    logger.info('Verified notification settings saved', {
+      appriseUrlCount: verified?.appriseUrls?.length || 0
+    });
+
     return settings;
   }
 
