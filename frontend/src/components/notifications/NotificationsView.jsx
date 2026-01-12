@@ -127,9 +127,12 @@ export default function NotificationsView() {
     try {
       setIsLoading(true);
       const response = await notificationsAPI.getSettings();
+      console.log('Notification settings API response:', response);
       // Merge response with defaults to ensure all properties exist
       const data = response.data || {};
-      setSettings({
+      console.log('Notification settings data:', data);
+      console.log('appriseUrls from response:', data.appriseUrls);
+      const mergedSettings = {
         ...defaultSettings,
         ...data,
         triggers: {
@@ -140,7 +143,10 @@ export default function NotificationsView() {
           ...defaultSettings.quietHours,
           ...(data.quietHours || {}),
         },
-      });
+      };
+      console.log('Merged settings:', mergedSettings);
+      console.log('Merged appriseUrls:', mergedSettings.appriseUrls);
+      setSettings(mergedSettings);
       // Mark initial load as complete after a short delay to allow state to settle
       setTimeout(() => {
         isInitialLoad.current = false;
