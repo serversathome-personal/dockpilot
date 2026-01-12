@@ -95,7 +95,7 @@
 ```yaml
 services:
   dockpilot:
-    image: serversathome/dockpilot:latest
+    image: ghcr.io/serversathome/dockpilot:latest
     container_name: dockpilot
     restart: unless-stopped
     ports:
@@ -170,7 +170,7 @@ docker run -d \
   -e NODE_ENV=production \
   -e PORT=5000 \
   -e STACKS_DIR=/stacks \
-  serversathome/dockpilot:latest
+  ghcr.io/serversathome/dockpilot:latest
 ```
 
 **Production setup (custom path):**
@@ -184,7 +184,7 @@ docker run -d \
   -e NODE_ENV=production \
   -e PORT=5000 \
   -e STACKS_DIR=/mnt/tank/stacks \
-  serversathome/dockpilot:latest
+  ghcr.io/serversathome/dockpilot:latest
 ```
 
 💡 **Optional:** Add `-e PUID=1000 -e PGID=1000` for user/group settings
@@ -249,7 +249,7 @@ docker run -d \
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/serversathome/dockpilot.git
+git clone https://github.com/ghcr.io/serversathome/dockpilot.git
 cd dockpilot
 ```
 
@@ -325,8 +325,8 @@ MIT License - see LICENSE file for details
 
 ## 📞 Support
 
-- GitHub Issues: [Report a bug](https://github.com/serversathome/dockpilot/issues)
-- Discussions: [Ask a question](https://github.com/serversathome/dockpilot/discussions)
+- GitHub Issues: [Report a bug](https://github.com/ghcr.io/serversathome/dockpilot/issues)
+- Discussions: [Ask a question](https://github.com/ghcr.io/serversathome/dockpilot/discussions)
 
 ---
 
