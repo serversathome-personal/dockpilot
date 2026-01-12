@@ -16,6 +16,7 @@ import {
   MagnifyingGlassIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 export default function NotificationsView() {
@@ -500,8 +501,19 @@ export default function NotificationsView() {
                 setHistoryPage(1);
               }}
               placeholder="Search notifications..."
-              className="glass-input w-full pl-10"
+              className="glass-input w-full pl-10 pr-10"
             />
+            {historySearch && (
+              <button
+                onClick={() => {
+                  setHistorySearch('');
+                  setHistoryPage(1);
+                }}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
           {/* History List */}
