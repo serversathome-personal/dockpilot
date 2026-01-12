@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import dockerService from './docker.service.js';
 import stackService from './stack.service.js';
+import notificationService from './notification.service.js';
 import configStore from '../storage/config.store.js';
 import logger from '../utils/logger.js';
 import { exec } from 'child_process';
@@ -260,10 +261,17 @@ class UpdateService {
         }
 
         if (updatesToApply.length > 0) {
-          await this.executeMultipleUpdates(updatesToApply, {
-            restartContainers: schedule.restartContainers,
-          });
-          logger.info(`Scheduled update completed: ${updatesToApply.length} images updated`);
+          if (schedule.updateType === 'checkOnly') {
+            // Check only mode - notify but don't apply updates
+            await notificationService.notifyUpdatesAvailable(updatesToApply);
+            logger.info(`Scheduled check completed: ${updatesToApply.length} updates available (check only mode)`);
+          } else {
+            // Apply updates
+            await this.executeMultipleUpdates(updatesToApply, {
+              restartContainers: schedule.restartContainers,
+            });
+            logger.info(`Scheduled update completed: ${updatesToApply.length} images updated`);
+          }
         }
       } catch (error) {
         logger.error(`Scheduled update failed:`, error);

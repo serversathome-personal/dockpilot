@@ -392,7 +392,7 @@ export default function UpdatesView() {
                         Schedule: <span className="font-mono">{schedule.cronExpression}</span>
                       </p>
                       <p className="text-sm text-slate-400">
-                        Update type: {schedule.updateType === 'minor' ? 'Minor updates only' : 'All updates'}
+                        Update type: {schedule.updateType === 'minor' ? 'Minor updates only' : schedule.updateType === 'checkOnly' ? 'Check only (notify)' : 'All updates'}
                       </p>
                       {schedule.excludedImages && schedule.excludedImages.length > 0 && (
                         <p className="text-sm text-slate-400">
@@ -503,6 +503,7 @@ export default function UpdatesView() {
             >
               <option value="all">All updates</option>
               <option value="minor">Minor updates only</option>
+              <option value="checkOnly">Check only (notify)</option>
             </select>
           </div>
 

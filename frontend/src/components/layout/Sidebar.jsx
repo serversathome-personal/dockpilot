@@ -21,8 +21,8 @@ const navigation = [
   { name: 'Networks', to: '/networks', icon: GlobeAltIcon },
   { name: 'Volumes', to: '/volumes', icon: CircleStackIcon },
   { name: 'Updates', to: '/updates', icon: ArrowPathIcon },
-  { name: 'Event Log', to: '/events', icon: ClipboardDocumentListIcon },
   { name: 'Notifications', to: '/notifications', icon: BellIcon },
+  { name: 'Event Log', to: '/events', icon: ClipboardDocumentListIcon },
 ];
 
 export default function Sidebar() {
