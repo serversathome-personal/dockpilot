@@ -178,7 +178,7 @@ class UpdateService {
       }
 
       // Get auth token (for Docker Hub and compatible registries)
-      let authHeader = '';
+      let authToken = '';
       if (authUrl) {
         try {
           const { stdout: tokenStdout } = await execAsync(
@@ -187,12 +187,14 @@ class UpdateService {
           );
           const tokenData = JSON.parse(tokenStdout);
           if (tokenData.token) {
-            authHeader = `-H "Authorization: Bearer ${tokenData.token}"`;
+            authToken = tokenData.token;
           }
         } catch (e) {
           // Auth failed, try without token
         }
       }
+
+      const authHeader = authToken ? `-H "Authorization: Bearer ${authToken}"` : '';
 
       // Get manifest digest using HEAD request with Docker-Content-Digest header
       const acceptHeader = 'application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json';
@@ -207,29 +209,64 @@ class UpdateService {
         return await this.getRemoteImageInfoFallback(repository, tag);
       }
 
-      // Try to get version info using buildx imagetools
+      // Try to get version info from remote image config
       let version = null;
       let created = null;
 
       try {
-        const { stdout: toolsStdout } = await execAsync(
-          `docker buildx imagetools inspect ${repository}:${tag} --raw 2>/dev/null | head -c 50000`,
+        // Fetch the manifest to get config digest
+        const { stdout: manifestStdout } = await execAsync(
+          `curl -s ${authHeader} -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json" "${registryUrl}/v2/${imagePath}/manifests/${tag}" 2>/dev/null`,
           { timeout: 10000 }
         );
 
-        if (toolsStdout.trim()) {
-          const toolsInfo = JSON.parse(toolsStdout);
-          if (toolsInfo.created) {
-            created = toolsInfo.created;
+        if (manifestStdout.trim()) {
+          let manifest = JSON.parse(manifestStdout);
+
+          // If it's a manifest list/index, get the first platform manifest (typically amd64)
+          if (manifest.manifests && Array.isArray(manifest.manifests)) {
+            // Find amd64 manifest or use the first one
+            const amd64Manifest = manifest.manifests.find(m =>
+              m.platform?.architecture === 'amd64' && m.platform?.os === 'linux'
+            ) || manifest.manifests[0];
+
+            if (amd64Manifest?.digest) {
+              // Fetch the platform-specific manifest
+              const { stdout: platformManifestStdout } = await execAsync(
+                `curl -s ${authHeader} -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json" "${registryUrl}/v2/${imagePath}/manifests/${amd64Manifest.digest}" 2>/dev/null`,
+                { timeout: 10000 }
+              );
+              if (platformManifestStdout.trim()) {
+                manifest = JSON.parse(platformManifestStdout);
+              }
+            }
           }
-          if (toolsInfo.config?.Labels) {
-            version = toolsInfo.config.Labels['org.opencontainers.image.version'] ||
-                      toolsInfo.config.Labels['version'] ||
-                      null;
+
+          // Get the config digest from the manifest
+          const configDigest = manifest.config?.digest;
+          if (configDigest) {
+            // Fetch the config blob which contains labels
+            const { stdout: configStdout } = await execAsync(
+              `curl -s ${authHeader} -H "Accept: application/vnd.docker.container.image.v1+json,application/vnd.oci.image.config.v1+json" "${registryUrl}/v2/${imagePath}/blobs/${configDigest}" 2>/dev/null`,
+              { timeout: 10000 }
+            );
+
+            if (configStdout.trim()) {
+              const config = JSON.parse(configStdout);
+              created = config.created || null;
+
+              // Extract version from labels
+              const labels = config.config?.Labels || {};
+              version = labels['org.opencontainers.image.version'] ||
+                        labels['version'] ||
+                        labels['VERSION'] ||
+                        null;
+            }
           }
         }
       } catch (e) {
-        // buildx imagetools not available or failed, continue without extra info
+        // Config fetch failed, continue without version info
+        logger.debug(`Failed to get remote config for ${repository}:${tag}:`, e.message);
       }
 
       return { digest, version, created };
