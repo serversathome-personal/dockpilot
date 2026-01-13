@@ -7,6 +7,7 @@ import config from './config/env.js';
 import logger from './utils/logger.js';
 import apiRoutes from './api/index.js';
 import logsWebSocketHandler from './websocket/logs.handler.js';
+import shellWebSocketHandler from './websocket/shell.handler.js';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware.js';
 
 // Get __dirname equivalent in ES modules
@@ -77,8 +78,9 @@ if (config.nodeEnv === 'production') {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Initialize WebSocket server
+// Initialize WebSocket servers
 logsWebSocketHandler.initialize(server);
+shellWebSocketHandler.initialize(server);
 
 // Start server
 const startServer = async () => {

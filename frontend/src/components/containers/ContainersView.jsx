@@ -23,7 +23,9 @@ import {
   TrashIcon,
   ArrowUpCircleIcon,
   DocumentTextIcon,
+  CommandLineIcon,
 } from '@heroicons/react/24/outline';
+import ShellModal from './ShellModal';
 
 export default function ContainersView() {
   const navigate = useNavigate();
@@ -41,6 +43,8 @@ export default function ContainersView() {
   const [updateContainerName, setUpdateContainerName] = useState('');
   const updateContentRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showShellModal, setShowShellModal] = useState(false);
+  const [shellContainer, setShellContainer] = useState(null);
 
   useEffect(() => {
     loadContainers();
@@ -371,6 +375,17 @@ export default function ContainersView() {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  setShellContainer(container);
+                  setShowShellModal(true);
+                }}
+                className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                title="Shell"
+              >
+                <CommandLineIcon className="h-5 w-5" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
                   handleAction('stop', container);
                 }}
                 className="text-warning hover:text-warning-light transition-colors"
@@ -625,6 +640,19 @@ export default function ContainersView() {
                     >
                       <PlayIcon className="h-4 w-4 mr-2" />
                       Unpause
+                    </Button>
+                  )}
+                  {selectedContainer?.state?.toLowerCase() === 'running' && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setShellContainer(selectedContainer);
+                        setShowShellModal(true);
+                      }}
+                      className="flex items-center"
+                    >
+                      <CommandLineIcon className="h-4 w-4 mr-2" />
+                      Shell
                     </Button>
                   )}
                   <Button
@@ -897,6 +925,16 @@ export default function ContainersView() {
           </div>
         </div>
       </Modal>
+
+      {/* Shell Modal */}
+      <ShellModal
+        isOpen={showShellModal}
+        onClose={() => {
+          setShowShellModal(false);
+          setShellContainer(null);
+        }}
+        container={shellContainer}
+      />
     </div>
   );
 }
