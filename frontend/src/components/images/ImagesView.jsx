@@ -18,6 +18,7 @@ export default function ImagesView() {
   const [isPulling, setIsPulling] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showDangling, setShowDangling] = useState(false);
+  const [isPruning, setIsPruning] = useState(false);
 
   useEffect(() => {
     loadImages();
@@ -83,12 +84,29 @@ export default function ImagesView() {
 
   const handlePrune = async () => {
     try {
-      setLoading(true);
-      await imagesAPI.prune();
-      addNotification({
-        type: 'success',
-        message: 'Unused images pruned successfully',
-      });
+      setIsPruning(true);
+      const result = await imagesAPI.prune();
+      const pruneData = result.data;
+
+      // Show detailed result
+      if (pruneData?.ImagesDeleted?.length > 0) {
+        const deletedCount = pruneData.ImagesDeleted.filter(img => img.Deleted).length;
+        const reclaimedSpace = pruneData.SpaceReclaimed || 0;
+        addNotification({
+          type: 'success',
+          message: `Pruned ${deletedCount} image(s), reclaimed ${formatBytes(reclaimedSpace)}`,
+        });
+      } else {
+        addNotification({
+          type: 'info',
+          message: 'No unused images to prune',
+        });
+      }
+
+      // Small delay to ensure Docker has finished cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Refresh the images list
       await loadImages();
     } catch (error) {
       console.error('Failed to prune images:', error);
@@ -97,7 +115,7 @@ export default function ImagesView() {
         message: 'Failed to prune images',
       });
     } finally {
-      setLoading(false);
+      setIsPruning(false);
     }
   };
 
@@ -247,12 +265,14 @@ export default function ImagesView() {
           <Button
             variant="danger"
             onClick={() => {
-              if (window.confirm('Are you sure you want to prune all unused images?')) {
+              if (window.confirm('Are you sure you want to prune all unused images? This will remove all dangling images.')) {
                 handlePrune();
               }
             }}
+            isLoading={isPruning}
+            disabled={isPruning}
           >
-            Prune
+            {isPruning ? 'Pruning...' : 'Prune'}
           </Button>
           <Button variant="secondary" onClick={loadImages}>
             <ArrowPathIcon className="h-5 w-5" />

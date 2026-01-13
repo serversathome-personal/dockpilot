@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useStore } from '../../store';
 import { updatesAPI } from '../../api/updates.api';
+import { settingsAPI } from '../../api/settings.api';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -8,7 +9,7 @@ import Modal from '../common/Modal';
 import Badge from '../common/Badge';
 import Table from '../common/Table';
 import { formatBytes, formatRelativeTime } from '../../utils/formatters';
-import { ArrowPathIcon, ClockIcon, CheckCircleIcon, XCircleIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ClockIcon, CheckCircleIcon, XCircleIcon, PlusIcon, Cog6ToothIcon, KeyIcon } from '@heroicons/react/24/outline';
 
 export default function UpdatesView() {
   const { isLoading, setLoading, addNotification } = useStore();
@@ -43,9 +44,20 @@ export default function UpdatesView() {
     excludedImages: [],
   });
 
+  // Registry auth state
+  const [registries, setRegistries] = useState([]);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginForm, setLoginForm] = useState({
+    registry: '',
+    username: '',
+    password: '',
+  });
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   useEffect(() => {
     loadSchedules();
     loadHistory();
+    loadRegistries();
   }, []);
 
   const checkForUpdates = async () => {
@@ -206,6 +218,64 @@ export default function UpdatesView() {
       setHistory(data.data || []);
     } catch (error) {
       console.error('Failed to load history:', error);
+    }
+  };
+
+  const loadRegistries = async () => {
+    try {
+      const data = await settingsAPI.getRegistries();
+      setRegistries(data.data || []);
+    } catch (error) {
+      console.error('Failed to load registries:', error);
+    }
+  };
+
+  const handleRegistryLogin = async () => {
+    if (!loginForm.username || !loginForm.password) {
+      addNotification({
+        type: 'error',
+        message: 'Username and password are required',
+      });
+      return;
+    }
+
+    try {
+      setIsLoggingIn(true);
+      await settingsAPI.loginRegistry(loginForm);
+      addNotification({
+        type: 'success',
+        message: `Successfully logged in${loginForm.registry ? ` to ${loginForm.registry}` : ' to Docker Hub'}`,
+      });
+      setShowLoginModal(false);
+      setLoginForm({ registry: '', username: '', password: '' });
+      await loadRegistries();
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        message: error.response?.data?.error || 'Login failed',
+      });
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleRegistryLogout = async (registry) => {
+    if (!window.confirm(`Are you sure you want to logout from ${registry || 'Docker Hub'}?`)) {
+      return;
+    }
+
+    try {
+      await settingsAPI.logoutRegistry({ registry });
+      addNotification({
+        type: 'success',
+        message: `Successfully logged out from ${registry || 'Docker Hub'}`,
+      });
+      await loadRegistries();
+    } catch (error) {
+      addNotification({
+        type: 'error',
+        message: 'Logout failed',
+      });
     }
   };
 
@@ -423,6 +493,7 @@ export default function UpdatesView() {
     { id: 'available', label: 'Available Updates', icon: ArrowPathIcon },
     { id: 'schedules', label: 'Schedules', icon: ClockIcon },
     { id: 'history', label: 'History', icon: CheckCircleIcon },
+    { id: 'settings', label: 'Settings', icon: Cog6ToothIcon },
   ];
 
   return (
@@ -599,6 +670,163 @@ export default function UpdatesView() {
           )}
         </Card>
       )}
+
+      {activeTab === 'settings' && (
+        <Card>
+          <div className="space-y-6">
+            {/* Registry Authentication */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Registry Authentication</h3>
+                  <p className="text-sm text-slate-400">
+                    Login to Docker registries to avoid rate limits when checking for updates
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowLoginModal(true)}
+                  className="flex items-center"
+                >
+                  <KeyIcon className="h-5 w-5 mr-2" />
+                  Add Registry
+                </Button>
+              </div>
+
+              {registries.length === 0 ? (
+                <div className="text-center py-8 bg-glass-light rounded-lg border border-glass-border">
+                  <KeyIcon className="mx-auto h-10 w-10 text-slate-500" />
+                  <p className="mt-2 text-sm text-slate-400">
+                    No registries configured. Add one to enable authenticated pulls.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {registries.map((reg, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-4 bg-glass-light rounded-lg border border-glass-border"
+                    >
+                      <div>
+                        <div className="font-medium text-white">
+                          {reg.registry.includes('index.docker.io') || reg.registry.includes('docker.io')
+                            ? 'Docker Hub'
+                            : reg.registry}
+                        </div>
+                        {reg.username && (
+                          <div className="text-sm text-slate-400">
+                            Logged in as: {reg.username}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleRegistryLogout(reg.registry)}
+                      >
+                        Logout
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Info Section */}
+            <div className="p-4 bg-glass-darker rounded-lg border border-glass-border">
+              <h4 className="font-medium text-white mb-2">About Registry Authentication</h4>
+              <ul className="text-sm text-slate-400 space-y-1">
+                <li>• Docker Hub has rate limits for unauthenticated pulls (100/6hr)</li>
+                <li>• Authenticated users get 200 pulls/6hr (5000 for paid plans)</li>
+                <li>• Login helps avoid "Too Many Requests" errors when checking updates</li>
+                <li>• Credentials are stored securely in the container</li>
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Registry Login Modal */}
+      <Modal
+        isOpen={showLoginModal}
+        onClose={() => {
+          setShowLoginModal(false);
+          setLoginForm({ registry: '', username: '', password: '' });
+        }}
+        title="Add Registry"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Registry (optional)
+            </label>
+            <input
+              type="text"
+              value={loginForm.registry}
+              onChange={(e) => setLoginForm({ ...loginForm, registry: e.target.value })}
+              placeholder="Leave empty for Docker Hub"
+              className="glass-input w-full"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Examples: ghcr.io, quay.io, gcr.io, or leave empty for Docker Hub
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Username
+            </label>
+            <input
+              type="text"
+              value={loginForm.username}
+              onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+              placeholder="Your username"
+              className="glass-input w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Password / Access Token
+            </label>
+            <input
+              type="password"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              placeholder="Your password or access token"
+              className="glass-input w-full"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleRegistryLogin();
+                }
+              }}
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              For Docker Hub, use an access token from hub.docker.com/settings/security
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowLoginModal(false);
+                setLoginForm({ registry: '', username: '', password: '' });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleRegistryLogin}
+              isLoading={isLoggingIn}
+            >
+              Login
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Schedule Modal */}
       <Modal

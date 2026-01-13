@@ -8,6 +8,7 @@ import volumesRoutes from './routes/volumes.js';
 import updatesRoutes from './routes/updates.js';
 import eventsRoutes from './routes/events.js';
 import notificationsRoutes from './routes/notifications.js';
+import settingsRoutes from './routes/settings.js';
 
 const router = express.Router();
 
@@ -30,5 +31,6 @@ router.use('/volumes', volumesRoutes);
 router.use('/updates', updatesRoutes);
 router.use('/events', eventsRoutes);
 router.use('/notifications', notificationsRoutes);
+router.use('/settings', settingsRoutes);
 
 export default router;
