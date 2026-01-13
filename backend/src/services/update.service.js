@@ -197,15 +197,33 @@ class UpdateService {
 
       for (const container of containers) {
         // Skip containers without proper image info
-        if (!container.image || !container.imageId) continue;
-
-        // Get the image tag (e.g., "n8nio/n8n:latest")
-        const imageTag = container.image;
-
-        // Skip images without proper tags
-        if (imageTag.startsWith('sha256:') || !imageTag.includes(':')) continue;
+        if (!container.imageId) continue;
 
         try {
+          // Get the image reference - might be a tag or just an ID
+          let imageTag = container.image;
+
+          // If image is just an ID (no tag), look up the original image from container config
+          if (!imageTag || !imageTag.includes(':') || imageTag.match(/^[a-f0-9]{12,64}$/i)) {
+            // Try to get original image from container's Config.Image
+            const { stdout: configImage } = await execAsync(
+              `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
+              { timeout: 5000 }
+            );
+            const originalImage = configImage.trim();
+
+            if (originalImage && !originalImage.startsWith('sha256:')) {
+              // Add :latest if no tag specified
+              imageTag = originalImage.includes(':') ? originalImage : `${originalImage}:latest`;
+            } else {
+              // Can't determine original image reference, skip
+              continue;
+            }
+          }
+
+          // Skip sha256: references
+          if (imageTag.startsWith('sha256:')) continue;
+
           // Get current image ID for this tag
           const { stdout } = await execAsync(
             `docker images "${imageTag}" --format '{{.ID}}' 2>/dev/null | head -1`,
