@@ -4,7 +4,7 @@ import stackService from './stack.service.js';
 import notificationService from './notification.service.js';
 import configStore from '../storage/config.store.js';
 import logger from '../utils/logger.js';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -408,6 +408,204 @@ class UpdateService {
       this.updateHistory.unshift(updateRecord);
       throw error;
     }
+  }
+
+  /**
+   * Execute update with streaming progress
+   * @param {string} repository - Image repository
+   * @param {string} tag - Image tag
+   * @param {Object} options - Update options
+   * @param {Function} onProgress - Progress callback
+   * @returns {Promise<Object>} Update result
+   */
+  async executeUpdateWithProgress(repository, tag, options = {}, onProgress = () => {}) {
+    const imageTag = `${repository}:${tag}`;
+    const updateRecord = {
+      image: imageTag,
+      timestamp: new Date().toISOString(),
+      status: 'pending',
+      restartedContainers: [],
+    };
+
+    try {
+      logger.info(`Starting update with progress for ${imageTag}`);
+
+      // Get containers using this image
+      const containers = await dockerService.listContainers({ all: true });
+      const affectedContainers = containers.filter(c =>
+        c.image === imageTag || c.image === repository
+      );
+
+      // Pull with progress streaming
+      await this.pullImageWithProgress(imageTag, onProgress);
+
+      updateRecord.status = 'pulled';
+
+      // Restart affected containers if requested
+      if (options.restartContainers && affectedContainers.length > 0) {
+        onProgress({ status: 'restarting', message: `Restarting ${affectedContainers.length} container(s)...` });
+
+        for (const container of affectedContainers) {
+          try {
+            const stackName = container.labels['com.docker.compose.project'];
+
+            if (stackName) {
+              await stackService.restartStack(stackName);
+              updateRecord.restartedContainers.push({
+                id: container.id,
+                name: container.name,
+                stack: stackName,
+                type: 'stack',
+              });
+            } else {
+              await dockerService.restartContainer(container.id);
+              updateRecord.restartedContainers.push({
+                id: container.id,
+                name: container.name,
+                type: 'container',
+              });
+            }
+          } catch (error) {
+            logger.error(`Failed to restart container ${container.name}:`, error);
+            updateRecord.restartedContainers.push({
+              id: container.id,
+              name: container.name,
+              error: error.message,
+            });
+          }
+        }
+      }
+
+      updateRecord.status = 'completed';
+      updateRecord.affectedContainers = affectedContainers.length;
+
+      this.updateHistory.unshift(updateRecord);
+      if (this.updateHistory.length > 100) {
+        this.updateHistory = this.updateHistory.slice(0, 100);
+      }
+
+      return updateRecord;
+    } catch (error) {
+      logger.error(`Failed to update ${imageTag}:`, error);
+      updateRecord.status = 'failed';
+      updateRecord.error = error.message;
+      this.updateHistory.unshift(updateRecord);
+      throw error;
+    }
+  }
+
+  /**
+   * Pull image with progress streaming
+   * @param {string} imageTag - Full image tag
+   * @param {Function} onProgress - Progress callback
+   * @returns {Promise<void>}
+   */
+  pullImageWithProgress(imageTag, onProgress) {
+    return new Promise((resolve, reject) => {
+      const pull = spawn('docker', ['pull', imageTag]);
+
+      let layerProgress = {};
+      let lastUpdate = 0;
+
+      const parseProgress = (line) => {
+        // Parse docker pull output
+        // Format: "abc123: Downloading [===>    ] 10MB/50MB"
+        // Or: "abc123: Pull complete"
+        // Or: "Status: Downloaded newer image"
+
+        const downloadMatch = line.match(/^([a-f0-9]+): Downloading\s+\[([=>\s]+)\]\s+([\d.]+\s*[kMG]?B)\/([\d.]+\s*[kMG]?B)/i);
+        const extractMatch = line.match(/^([a-f0-9]+): Extracting\s+\[([=>\s]+)\]\s+([\d.]+\s*[kMG]?B)\/([\d.]+\s*[kMG]?B)/i);
+        const completeMatch = line.match(/^([a-f0-9]+): (Pull complete|Already exists|Download complete)/i);
+        const statusMatch = line.match(/^Status: (.+)/i);
+        const digestMatch = line.match(/^Digest: (sha256:[a-f0-9]+)/i);
+
+        if (downloadMatch) {
+          const [, layerId, , current, total] = downloadMatch;
+          layerProgress[layerId] = { status: 'downloading', current, total };
+        } else if (extractMatch) {
+          const [, layerId, , current, total] = extractMatch;
+          layerProgress[layerId] = { status: 'extracting', current, total };
+        } else if (completeMatch) {
+          const [, layerId, status] = completeMatch;
+          layerProgress[layerId] = { status: status.toLowerCase().replace(' ', '_'), complete: true };
+        } else if (statusMatch) {
+          onProgress({ status: 'status', message: statusMatch[1] });
+          return;
+        } else if (digestMatch) {
+          onProgress({ status: 'digest', digest: digestMatch[1] });
+          return;
+        }
+
+        // Throttle progress updates to every 200ms
+        const now = Date.now();
+        if (now - lastUpdate < 200) return;
+        lastUpdate = now;
+
+        // Calculate overall progress
+        const layers = Object.entries(layerProgress);
+        const completedLayers = layers.filter(([, l]) => l.complete).length;
+        const totalLayers = layers.length;
+
+        // Calculate download progress
+        let downloadedBytes = 0;
+        let totalBytes = 0;
+        layers.forEach(([, layer]) => {
+          if (layer.current && layer.total) {
+            downloadedBytes += parseSize(layer.current);
+            totalBytes += parseSize(layer.total);
+          }
+        });
+
+        onProgress({
+          status: 'downloading',
+          layers: { completed: completedLayers, total: totalLayers },
+          bytes: { downloaded: formatBytes(downloadedBytes), total: formatBytes(totalBytes) },
+          percent: totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0,
+        });
+      };
+
+      const parseSize = (sizeStr) => {
+        const match = sizeStr.match(/([\d.]+)\s*([kMG]?B)/i);
+        if (!match) return 0;
+        const [, num, unit] = match;
+        const multipliers = { 'B': 1, 'KB': 1024, 'MB': 1024 * 1024, 'GB': 1024 * 1024 * 1024 };
+        return parseFloat(num) * (multipliers[unit.toUpperCase()] || 1);
+      };
+
+      const formatBytes = (bytes) => {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+      };
+
+      let buffer = '';
+      pull.stdout.on('data', (data) => {
+        buffer += data.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        lines.forEach(line => line.trim() && parseProgress(line.trim()));
+      });
+
+      pull.stderr.on('data', (data) => {
+        buffer += data.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        lines.forEach(line => line.trim() && parseProgress(line.trim()));
+      });
+
+      pull.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Docker pull failed with code ${code}`));
+        }
+      });
+
+      pull.on('error', (error) => {
+        reject(error);
+      });
+    });
   }
 
   /**

@@ -48,7 +48,7 @@ router.post('/execute', asyncHandler(async (req, res) => {
 
 /**
  * POST /api/updates/execute/stream
- * Execute updates with SSE progress streaming
+ * Execute updates with SSE progress streaming including download progress
  */
 router.post('/execute/stream', async (req, res) => {
   const { images, restartContainers = false } = req.body;
@@ -90,9 +90,20 @@ router.post('/execute/stream', async (req, res) => {
     });
 
     try {
-      const result = await updateService.executeUpdate(image.repository, image.currentTag, {
-        restartContainers,
-      });
+      // Use streaming pull with progress callback
+      const result = await updateService.executeUpdateWithProgress(
+        image.repository,
+        image.currentTag,
+        { restartContainers },
+        (progressData) => {
+          sendEvent('pull-progress', {
+            current: completed + 1,
+            total,
+            image: imageTag,
+            ...progressData,
+          });
+        }
+      );
       results.push(result);
 
       sendEvent('progress', {

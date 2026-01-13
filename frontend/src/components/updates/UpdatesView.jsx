@@ -31,6 +31,7 @@ export default function UpdatesView() {
     currentImage: '',
     status: '',
     logs: [],
+    pullProgress: null, // { layers: {completed, total}, bytes: {downloaded, total}, percent }
   });
 
   const [newSchedule, setNewSchedule] = useState({
@@ -93,6 +94,7 @@ export default function UpdatesView() {
       currentImage: '',
       status: 'starting',
       logs: [],
+      pullProgress: null,
     });
 
     try {
@@ -132,7 +134,20 @@ export default function UpdatesView() {
                   total: data.total,
                   currentImage: data.image,
                   status: data.status,
+                  pullProgress: null, // Reset pull progress for new image
                   logs: [...prev.logs, { message: data.message, status: data.status }],
+                }));
+              } else if (data.type === 'pull-progress') {
+                // Update pull progress without adding to logs
+                setUpdateProgress((prev) => ({
+                  ...prev,
+                  pullProgress: {
+                    layers: data.layers,
+                    bytes: data.bytes,
+                    percent: data.percent,
+                    status: data.status,
+                    message: data.message,
+                  },
                 }));
               } else if (data.type === 'complete') {
                 setUpdateProgress((prev) => ({
@@ -353,7 +368,12 @@ export default function UpdatesView() {
               Built {formatAge(update.newCreated)}
             </div>
           ) : (
-            <Badge variant="warning" className="text-xs">New</Badge>
+            <div className="text-success text-xs">
+              Newer build
+              <span className="text-slate-500 ml-1">
+                ({update.latestDigest})
+              </span>
+            </div>
           )}
         </div>
       ),
@@ -702,6 +722,7 @@ export default function UpdatesView() {
               currentImage: '',
               status: '',
               logs: [],
+              pullProgress: null,
             });
           }
         }}
@@ -726,11 +747,52 @@ export default function UpdatesView() {
             </div>
           </div>
 
-          {/* Current image */}
+          {/* Current image and pull progress */}
           {updateProgress.currentImage && updateProgress.status !== 'complete' && (
-            <div className="flex items-center space-x-2 text-slate-300">
-              <LoadingSpinner size="sm" />
-              <span className="text-sm">Pulling {updateProgress.currentImage}...</span>
+            <div className="bg-glass-light rounded-lg p-3 space-y-2">
+              <div className="flex items-center space-x-2 text-slate-300">
+                <LoadingSpinner size="sm" />
+                <span className="text-sm font-medium">{updateProgress.currentImage}</span>
+              </div>
+
+              {/* Pull progress details */}
+              {updateProgress.pullProgress && (
+                <div className="space-y-2">
+                  {/* Download progress bar */}
+                  {updateProgress.pullProgress.percent !== undefined && (
+                    <div>
+                      <div className="flex justify-between text-xs text-slate-400 mb-1">
+                        <span>
+                          {updateProgress.pullProgress.status === 'downloading' ? 'Downloading' :
+                           updateProgress.pullProgress.status === 'extracting' ? 'Extracting' :
+                           updateProgress.pullProgress.message || 'Processing'}
+                        </span>
+                        <span>{updateProgress.pullProgress.percent}%</span>
+                      </div>
+                      <div className="w-full bg-glass-darker rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full bg-primary transition-all duration-150"
+                          style={{ width: `${updateProgress.pullProgress.percent}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Layer and byte info */}
+                  <div className="flex justify-between text-xs text-slate-400">
+                    {updateProgress.pullProgress.layers && (
+                      <span>
+                        Layers: {updateProgress.pullProgress.layers.completed}/{updateProgress.pullProgress.layers.total}
+                      </span>
+                    )}
+                    {updateProgress.pullProgress.bytes && (
+                      <span>
+                        {updateProgress.pullProgress.bytes.downloaded} / {updateProgress.pullProgress.bytes.total}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -772,6 +834,7 @@ export default function UpdatesView() {
                     currentImage: '',
                     status: '',
                     logs: [],
+                    pullProgress: null,
                   });
                 }}
               >
