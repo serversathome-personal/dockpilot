@@ -727,42 +727,35 @@ class UpdateService {
         updateRecord.status = 'pulled';
       }
 
-      // Find containers to recreate
-      let containersToRecreate = [];
+      // Find ALL containers using this image (regardless of update type)
+      // This ensures all containers are updated together, not one at a time
+      const containers = await dockerService.listContainers({ all: true });
+      let containersToRecreate = containers.filter(c => {
+        // Match by exact image tag
+        if (c.image === imageTag || c.image === repository) return true;
+        return false;
+      });
 
-      if (updateType === 'container' && containerId) {
-        // For container updates, we have the specific container
-        const allContainers = await dockerService.listContainers({ all: true });
-        const targetContainer = allContainers.find(c => c.id === containerId || c.name === containerName);
-        if (targetContainer) {
-          containersToRecreate = [targetContainer];
-        }
-      } else {
-        // For registry updates, find all containers using this image
-        const containers = await dockerService.listContainers({ all: true });
-        containersToRecreate = containers.filter(c =>
-          c.image === imageTag || c.image === repository
-        );
-
-        // Also find containers with sha256: references
-        for (const container of containers) {
-          if (container.image?.startsWith('sha256:') && !containersToRecreate.includes(container)) {
-            try {
-              const { stdout } = await execAsync(
-                `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
-                { timeout: 5000 }
-              );
-              const configImage = stdout.trim();
-              const normalizedConfigImage = configImage.includes(':') ? configImage : `${configImage}:latest`;
-              if (normalizedConfigImage === imageTag) {
-                containersToRecreate.push(container);
-              }
-            } catch (e) {
-              // Skip containers we can't inspect
+      // Also find containers with sha256: references by checking their Config.Image
+      for (const container of containers) {
+        if (container.image?.startsWith('sha256:') && !containersToRecreate.includes(container)) {
+          try {
+            const { stdout } = await execAsync(
+              `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
+              { timeout: 5000 }
+            );
+            const configImage = stdout.trim();
+            const normalizedConfigImage = configImage.includes(':') ? configImage : `${configImage}:latest`;
+            if (normalizedConfigImage === imageTag) {
+              containersToRecreate.push(container);
             }
+          } catch (e) {
+            // Skip containers we can't inspect
           }
         }
       }
+
+      logger.info(`Found ${containersToRecreate.length} container(s) using ${imageTag}`);
 
       // Recreate affected containers
       if (containersToRecreate.length > 0) {
@@ -892,44 +885,35 @@ class UpdateService {
       }
 
       // Find containers to recreate
-      let containersToRecreate = [];
+      // Find ALL containers using this image (regardless of update type)
+      // This ensures all containers are updated together, not one at a time
+      const containers = await dockerService.listContainers({ all: true });
+      let containersToRecreate = containers.filter(c => {
+        // Match by exact image tag
+        if (c.image === imageTag || c.image === repository) return true;
+        return false;
+      });
 
-      if (updateType === 'container' && containerId) {
-        // For container updates, we have the specific container
-        const allContainers = await dockerService.listContainers({ all: true });
-        const targetContainer = allContainers.find(c => c.id === containerId || c.name === containerName);
-        if (targetContainer) {
-          containersToRecreate = [targetContainer];
-        }
-      } else {
-        // For registry updates, find all containers using this image
-        const containers = await dockerService.listContainers({ all: true });
-        containersToRecreate = containers.filter(c => {
-          // Match by exact image tag
-          if (c.image === imageTag || c.image === repository) return true;
-          // Also check Config.Image for containers showing sha256: references
-          return false;
-        });
-
-        // Also find containers with sha256: references by checking their Config.Image
-        for (const container of containers) {
-          if (container.image?.startsWith('sha256:')) {
-            try {
-              const { stdout } = await execAsync(
-                `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
-                { timeout: 5000 }
-              );
-              const configImage = stdout.trim();
-              const normalizedConfigImage = configImage.includes(':') ? configImage : `${configImage}:latest`;
-              if (normalizedConfigImage === imageTag) {
-                containersToRecreate.push(container);
-              }
-            } catch (e) {
-              // Skip containers we can't inspect
+      // Also find containers with sha256: references by checking their Config.Image
+      for (const container of containers) {
+        if (container.image?.startsWith('sha256:') && !containersToRecreate.includes(container)) {
+          try {
+            const { stdout } = await execAsync(
+              `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
+              { timeout: 5000 }
+            );
+            const configImage = stdout.trim();
+            const normalizedConfigImage = configImage.includes(':') ? configImage : `${configImage}:latest`;
+            if (normalizedConfigImage === imageTag) {
+              containersToRecreate.push(container);
             }
+          } catch (e) {
+            // Skip containers we can't inspect
           }
         }
       }
+
+      logger.info(`Found ${containersToRecreate.length} container(s) using ${imageTag}`);
 
       // Recreate affected containers
       if (containersToRecreate.length > 0) {
