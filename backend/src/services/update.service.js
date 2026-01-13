@@ -195,6 +195,8 @@ class UpdateService {
       const containers = await dockerService.listContainers({ all: true });
       const outdated = [];
 
+      logger.info(`Checking ${containers.length} containers for outdated images`);
+
       for (const container of containers) {
         // Skip containers without proper image info
         if (!container.imageId) continue;
@@ -202,6 +204,8 @@ class UpdateService {
         try {
           // Get the image reference - might be a tag or just an ID
           let imageTag = container.image;
+
+          logger.debug(`Checking container ${container.name}: image="${imageTag}", imageId="${container.imageId?.substring(0, 19)}"`)
 
           // If image is just an ID (no tag), look up the original image from container config
           if (!imageTag || !imageTag.includes(':') || imageTag.match(/^[a-f0-9]{12,64}$/i)) {
@@ -236,6 +240,8 @@ class UpdateService {
           // Container's image ID (short form for comparison)
           const containerImageId = container.imageId.replace('sha256:', '').substring(0, 12);
           const currentImageIdShort = currentImageId.substring(0, 12);
+
+          logger.info(`Container ${container.name}: running=${containerImageId}, current=${currentImageIdShort}, match=${containerImageId === currentImageIdShort}`);
 
           // If they differ, the container needs to be recreated
           if (containerImageId !== currentImageIdShort) {
