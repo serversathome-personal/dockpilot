@@ -187,10 +187,32 @@ export default function UpdatesView() {
     }
   };
 
+  const toggleSelectAll = () => {
+    if (selectedUpdates.length === availableUpdates.length) {
+      setSelectedUpdates([]);
+    } else {
+      setSelectedUpdates([...availableUpdates]);
+    }
+  };
+
+  const allSelected = availableUpdates.length > 0 && selectedUpdates.length === availableUpdates.length;
+  const someSelected = selectedUpdates.length > 0 && selectedUpdates.length < availableUpdates.length;
+
   const updatesColumns = [
     {
       key: 'select',
-      label: '',
+      label: availableUpdates.length > 0 ? (
+        <input
+          type="checkbox"
+          checked={allSelected}
+          ref={(el) => {
+            if (el) el.indeterminate = someSelected;
+          }}
+          onChange={toggleSelectAll}
+          className="w-4 h-4 text-primary bg-glass-light border-glass-border rounded focus:ring-primary cursor-pointer"
+          title={allSelected ? 'Deselect all' : 'Select all'}
+        />
+      ) : '',
       sortable: false,
       render: (_, update) => (
         <input
