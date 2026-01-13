@@ -958,6 +958,119 @@ class DockerService {
   }
 
   /**
+   * Pull image with detailed progress streaming
+   * Uses Docker API's followProgress for per-layer tracking
+   * @param {string} imageTag - Full image tag (e.g., "nginx:latest")
+   * @param {Function} onProgress - Progress callback with layer and summary data
+   * @returns {Promise<Object>} Pull result with digest info
+   */
+  async pullImageWithProgress(imageTag, onProgress = () => {}) {
+    return new Promise((resolve, reject) => {
+      this.docker.pull(imageTag, (err, stream) => {
+        if (err) {
+          logger.error(`Failed to pull image ${imageTag}:`, err);
+          return reject(err);
+        }
+
+        const layerProgress = {};
+        let lastUpdate = 0;
+        let finalDigest = null;
+
+        this.docker.modem.followProgress(
+          stream,
+          // onFinished callback
+          (err, output) => {
+            if (err) {
+              logger.error(`Pull failed for ${imageTag}:`, err);
+              return reject(err);
+            }
+
+            logger.info(`Image ${imageTag} pulled successfully`);
+            resolve({
+              success: true,
+              digest: finalDigest,
+              output,
+            });
+          },
+          // onProgress callback - called for each progress event
+          (event) => {
+            // Track layer progress
+            if (event.id) {
+              layerProgress[event.id] = {
+                id: event.id,
+                status: event.status,
+                current: event.progressDetail?.current || 0,
+                total: event.progressDetail?.total || 0,
+              };
+            }
+
+            // Capture final digest
+            if (event.status?.includes('Digest:')) {
+              finalDigest = event.status.split('Digest:')[1]?.trim();
+            }
+
+            // Throttle progress updates to every 100ms
+            const now = Date.now();
+            if (now - lastUpdate < 100) return;
+            lastUpdate = now;
+
+            // Calculate summary statistics
+            const layers = Object.values(layerProgress);
+            const completedLayers = layers.filter(
+              (l) => l.status === 'Pull complete' || l.status === 'Already exists'
+            ).length;
+            const downloadingLayers = layers.filter(
+              (l) => l.status === 'Downloading'
+            ).length;
+            const extractingLayers = layers.filter(
+              (l) => l.status === 'Extracting'
+            ).length;
+
+            // Calculate byte progress
+            let downloadedBytes = 0;
+            let totalBytes = 0;
+            layers.forEach((layer) => {
+              if (layer.total > 0) {
+                downloadedBytes += layer.current;
+                totalBytes += layer.total;
+              }
+            });
+
+            const percent = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
+
+            // Format status message
+            let statusMessage = '';
+            if (extractingLayers > 0) {
+              statusMessage = 'Extracting';
+            } else if (downloadingLayers > 0) {
+              statusMessage = 'Downloading';
+            } else if (completedLayers === layers.length && layers.length > 0) {
+              statusMessage = 'Complete';
+            } else {
+              statusMessage = 'Waiting';
+            }
+
+            onProgress({
+              event,
+              layers: layerProgress,
+              summary: {
+                completed: completedLayers,
+                total: layers.length,
+                downloading: downloadingLayers,
+                extracting: extractingLayers,
+                downloadedBytes,
+                totalBytes,
+                percent,
+                status: statusMessage,
+              },
+            });
+          }
+        );
+      });
+    });
+  }
+
+  /**
    * Stream Docker events via SSE
    * @param {Object} res - Express response object for SSE
    * @param {Object} options - Filter options

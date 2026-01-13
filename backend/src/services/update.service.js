@@ -6,7 +6,7 @@ import stackService from './stack.service.js';
 import notificationService from './notification.service.js';
 import configStore from '../storage/config.store.js';
 import logger from '../utils/logger.js';
-import { exec, spawn } from 'child_process';
+import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -346,16 +346,17 @@ class UpdateService {
         return null;
       }
 
-      logger.debug(`Remote digest for ${repository}:${tag}: ${digest.substring(0, 19)}`);
-
+      logger.debug(`Initial remote digest for ${repository}:${tag}: ${digest.substring(0, 19)}`);
 
       // Try to get version info from remote image config
+      // Also get platform-specific digest for multi-arch images
       let version = null;
       let created = null;
+      let platformDigest = null;
 
       try {
-        // First fetch manifest list/index to handle multi-arch images
-        const indexAccept = 'application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json';
+        // First fetch manifest to check if it's a manifest list/index (multi-arch)
+        const indexAccept = 'application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json';
         const { stdout: indexStdout } = await execAsync(
           `curl -s ${authHeader} -H "Accept: ${indexAccept}" "${registryUrl}/v2/${imagePath}/manifests/${tag}" 2>/dev/null`,
           { timeout: 10000 }
@@ -368,6 +369,7 @@ class UpdateService {
 
           // Check if this is a manifest list/index (multi-arch)
           if (indexData.manifests && Array.isArray(indexData.manifests)) {
+            // This is a multi-arch image - need to get platform-specific digest
             // Find amd64 manifest, skip attestation manifests
             const amd64Manifest = indexData.manifests.find(m =>
               m.platform?.architecture === 'amd64' &&
@@ -378,7 +380,12 @@ class UpdateService {
             );
 
             if (amd64Manifest?.digest) {
-              // Fetch the platform-specific manifest
+              // Use the platform-specific manifest digest for comparison
+              // This is what Docker stores locally in RepoDigests
+              platformDigest = amd64Manifest.digest;
+              logger.debug(`Multi-arch image ${repository}:${tag}, using platform digest: ${platformDigest.substring(0, 19)}`);
+
+              // Fetch the platform-specific manifest to get config digest
               const manifestAccept = 'application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json';
               const { stdout: platformStdout } = await execAsync(
                 `curl -s ${authHeader} -H "Accept: ${manifestAccept}" "${registryUrl}/v2/${imagePath}/manifests/${amd64Manifest.digest}" 2>/dev/null`,
@@ -440,7 +447,11 @@ class UpdateService {
         logger.debug(`Failed to get remote config for ${repository}:${tag}:`, e.message);
       }
 
-      return { digest, version, created };
+      // Use platform-specific digest for multi-arch images, otherwise use the original
+      const finalDigest = platformDigest || digest;
+      logger.debug(`Final digest for ${repository}:${tag}: ${finalDigest.substring(0, 19)}`);
+
+      return { digest: finalDigest, version, created };
     } catch (error) {
       logger.warn(`Failed to get remote info for ${repository}:${tag}:`, error.message);
       return null;
@@ -753,83 +764,17 @@ class UpdateService {
   }
 
   /**
-   * Pull image with progress streaming
+   * Pull image with progress streaming using Docker API
    * @param {string} imageTag - Full image tag
    * @param {Function} onProgress - Progress callback
-   * @returns {Promise<void>}
+   * @returns {Promise<Object>} Pull result
    */
-  pullImageWithProgress(imageTag, onProgress) {
-    return new Promise((resolve, reject) => {
-      const pull = spawn('docker', ['pull', imageTag]);
+  async pullImageWithProgress(imageTag, onProgress) {
+    // Use Docker API for reliable progress tracking
+    const result = await dockerService.pullImageWithProgress(imageTag, (progress) => {
+      const { layers, summary } = progress;
 
-      let layerProgress = {};
-      let lastUpdate = 0;
-
-      const parseProgress = (line) => {
-        // Parse docker pull output
-        // Format: "abc123: Downloading [===>    ] 10MB/50MB"
-        // Or: "abc123: Pull complete"
-        // Or: "Status: Downloaded newer image"
-
-        const downloadMatch = line.match(/^([a-f0-9]+): Downloading\s+\[([=>\s]+)\]\s+([\d.]+\s*[kMG]?B)\/([\d.]+\s*[kMG]?B)/i);
-        const extractMatch = line.match(/^([a-f0-9]+): Extracting\s+\[([=>\s]+)\]\s+([\d.]+\s*[kMG]?B)\/([\d.]+\s*[kMG]?B)/i);
-        const completeMatch = line.match(/^([a-f0-9]+): (Pull complete|Already exists|Download complete)/i);
-        const statusMatch = line.match(/^Status: (.+)/i);
-        const digestMatch = line.match(/^Digest: (sha256:[a-f0-9]+)/i);
-
-        if (downloadMatch) {
-          const [, layerId, , current, total] = downloadMatch;
-          layerProgress[layerId] = { status: 'downloading', current, total };
-        } else if (extractMatch) {
-          const [, layerId, , current, total] = extractMatch;
-          layerProgress[layerId] = { status: 'extracting', current, total };
-        } else if (completeMatch) {
-          const [, layerId, status] = completeMatch;
-          layerProgress[layerId] = { status: status.toLowerCase().replace(' ', '_'), complete: true };
-        } else if (statusMatch) {
-          onProgress({ status: 'status', message: statusMatch[1] });
-          return;
-        } else if (digestMatch) {
-          onProgress({ status: 'digest', digest: digestMatch[1] });
-          return;
-        }
-
-        // Throttle progress updates to every 200ms
-        const now = Date.now();
-        if (now - lastUpdate < 200) return;
-        lastUpdate = now;
-
-        // Calculate overall progress
-        const layers = Object.entries(layerProgress);
-        const completedLayers = layers.filter(([, l]) => l.complete).length;
-        const totalLayers = layers.length;
-
-        // Calculate download progress
-        let downloadedBytes = 0;
-        let totalBytes = 0;
-        layers.forEach(([, layer]) => {
-          if (layer.current && layer.total) {
-            downloadedBytes += parseSize(layer.current);
-            totalBytes += parseSize(layer.total);
-          }
-        });
-
-        onProgress({
-          status: 'downloading',
-          layers: { completed: completedLayers, total: totalLayers },
-          bytes: { downloaded: formatBytes(downloadedBytes), total: formatBytes(totalBytes) },
-          percent: totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0,
-        });
-      };
-
-      const parseSize = (sizeStr) => {
-        const match = sizeStr.match(/([\d.]+)\s*([kMG]?B)/i);
-        if (!match) return 0;
-        const [, num, unit] = match;
-        const multipliers = { 'B': 1, 'KB': 1024, 'MB': 1024 * 1024, 'GB': 1024 * 1024 * 1024 };
-        return parseFloat(num) * (multipliers[unit.toUpperCase()] || 1);
-      };
-
+      // Format bytes for display
       const formatBytes = (bytes) => {
         if (bytes < 1024) return bytes + ' B';
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -837,33 +782,32 @@ class UpdateService {
         return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
       };
 
-      let buffer = '';
-      pull.stdout.on('data', (data) => {
-        buffer += data.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        lines.forEach(line => line.trim() && parseProgress(line.trim()));
-      });
-
-      pull.stderr.on('data', (data) => {
-        buffer += data.toString();
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        lines.forEach(line => line.trim() && parseProgress(line.trim()));
-      });
-
-      pull.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`Docker pull failed with code ${code}`));
-        }
-      });
-
-      pull.on('error', (error) => {
-        reject(error);
+      // Send structured progress to frontend
+      onProgress({
+        status: summary.status.toLowerCase(),
+        layers: {
+          completed: summary.completed,
+          total: summary.total,
+          downloading: summary.downloading,
+          extracting: summary.extracting,
+        },
+        bytes: {
+          downloaded: formatBytes(summary.downloadedBytes),
+          total: formatBytes(summary.totalBytes),
+        },
+        percent: summary.percent,
+        // Include per-layer details for enhanced UI
+        layerDetails: Object.values(layers).map((layer) => ({
+          id: layer.id,
+          status: layer.status,
+          current: layer.current,
+          total: layer.total,
+          percent: layer.total > 0 ? Math.round((layer.current / layer.total) * 100) : 0,
+        })),
       });
     });
+
+    return result;
   }
 
   /**

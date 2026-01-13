@@ -982,15 +982,13 @@ export default function UpdatesView() {
 
               {/* Pull progress details */}
               {updateProgress.pullProgress && (
-                <div className="space-y-2">
-                  {/* Download progress bar */}
+                <div className="space-y-3">
+                  {/* Overall progress bar */}
                   {updateProgress.pullProgress.percent !== undefined && (
                     <div>
                       <div className="flex justify-between text-xs text-slate-400 mb-1">
-                        <span>
-                          {updateProgress.pullProgress.status === 'downloading' ? 'Downloading' :
-                           updateProgress.pullProgress.status === 'extracting' ? 'Extracting' :
-                           updateProgress.pullProgress.message || 'Processing'}
+                        <span className="capitalize">
+                          {updateProgress.pullProgress.status || 'Processing'}
                         </span>
                         <span>{updateProgress.pullProgress.percent}%</span>
                       </div>
@@ -1003,11 +1001,60 @@ export default function UpdatesView() {
                     </div>
                   )}
 
-                  {/* Layer and byte info */}
-                  <div className="flex justify-between text-xs text-slate-400">
+                  {/* Per-layer progress */}
+                  {updateProgress.pullProgress.layerDetails && updateProgress.pullProgress.layerDetails.length > 0 && (
+                    <div className="max-h-48 overflow-y-auto space-y-1 text-xs font-mono">
+                      {updateProgress.pullProgress.layerDetails.map((layer) => (
+                        <div key={layer.id} className="flex items-center space-x-2">
+                          {/* Status icon */}
+                          <span className="w-4 flex-shrink-0">
+                            {layer.status === 'Pull complete' || layer.status === 'Already exists' ? (
+                              <span className="text-success">✓</span>
+                            ) : layer.status === 'Downloading' || layer.status === 'Extracting' ? (
+                              <span className="text-primary animate-pulse">⠿</span>
+                            ) : layer.status === 'Waiting' || layer.status === 'Pulling fs layer' ? (
+                              <span className="text-slate-500">○</span>
+                            ) : (
+                              <span className="text-slate-500">·</span>
+                            )}
+                          </span>
+                          {/* Layer ID */}
+                          <span className="text-slate-400 w-12 flex-shrink-0">{layer.id}</span>
+                          {/* Status and progress */}
+                          <span className={`flex-1 truncate ${
+                            layer.status === 'Pull complete' || layer.status === 'Already exists'
+                              ? 'text-success'
+                              : layer.status === 'Downloading' || layer.status === 'Extracting'
+                                ? 'text-slate-300'
+                                : 'text-slate-500'
+                          }`}>
+                            {layer.status}
+                            {(layer.status === 'Downloading' || layer.status === 'Extracting') && layer.total > 0 && (
+                              <span className="ml-2 text-slate-400">
+                                {layer.percent}%
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Summary info */}
+                  <div className="flex justify-between text-xs text-slate-400 border-t border-glass-border pt-2">
                     {updateProgress.pullProgress.layers && (
                       <span>
                         Layers: {updateProgress.pullProgress.layers.completed}/{updateProgress.pullProgress.layers.total}
+                        {updateProgress.pullProgress.layers.downloading > 0 && (
+                          <span className="ml-1 text-primary">
+                            ({updateProgress.pullProgress.layers.downloading} downloading)
+                          </span>
+                        )}
+                        {updateProgress.pullProgress.layers.extracting > 0 && (
+                          <span className="ml-1 text-yellow-500">
+                            ({updateProgress.pullProgress.layers.extracting} extracting)
+                          </span>
+                        )}
                       </span>
                     )}
                     {updateProgress.pullProgress.bytes && (
