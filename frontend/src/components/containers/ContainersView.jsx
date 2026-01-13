@@ -499,27 +499,26 @@ export default function ContainersView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Containers</h1>
-          <p className="mt-2 text-slate-400">
+          <h1 className="text-2xl lg:text-3xl font-bold text-white">Containers</h1>
+          <p className="mt-1 lg:mt-2 text-sm lg:text-base text-slate-400">
             Manage your Docker containers • {filteredContainers.length} total
           </p>
         </div>
-        <div className="flex items-center space-x-3">
-          <label className="flex items-center space-x-2 text-sm text-slate-300">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none whitespace-nowrap">
             <input
               type="checkbox"
               checked={showAll}
               onChange={(e) => setShowAll(e.target.checked)}
-              className="rounded border-glass-border bg-glass-darker text-primary focus:ring-primary focus:ring-offset-0"
+              className="w-4 h-4 rounded border-glass-border bg-glass-darker text-primary focus:ring-primary focus:ring-offset-0"
             />
-            <span>Show stopped containers</span>
+            <span>Show stopped</span>
           </label>
           <Button variant="secondary" onClick={loadContainers}>
-            <ArrowPathIcon className="h-5 w-5 mr-2" />
-            Refresh
+            <ArrowPathIcon className="h-5 w-5" />
           </Button>
         </div>
       </div>
@@ -528,10 +527,10 @@ export default function ContainersView() {
       <div className="flex items-center relative">
         <input
           type="text"
-          placeholder="Search containers by name, image, or status..."
+          placeholder="Search containers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="flex-1 px-3 lg:px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm lg:text-base"
         />
         {searchTerm && (
           <button

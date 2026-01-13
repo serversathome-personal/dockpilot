@@ -205,22 +205,22 @@ export default function ImagesView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Images</h1>
-          <p className="mt-2 text-slate-400">
+          <h1 className="text-2xl lg:text-3xl font-bold text-white">Images</h1>
+          <p className="mt-1 lg:mt-2 text-sm lg:text-base text-slate-400">
             Manage your Docker images • {images.length} total • {formatBytes(totalSize)}
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="secondary"
             onClick={() => setShowPullModal(true)}
             className="flex items-center"
           >
-            <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-            Pull Image
+            <ArrowDownTrayIcon className="h-5 w-5 lg:mr-2" />
+            <span className="hidden sm:inline">Pull</span>
           </Button>
           <Button
             variant="danger"
@@ -230,11 +230,10 @@ export default function ImagesView() {
               }
             }}
           >
-            Prune Unused
+            Prune
           </Button>
           <Button variant="secondary" onClick={loadImages}>
-            <ArrowPathIcon className="h-5 w-5 mr-2" />
-            Refresh
+            <ArrowPathIcon className="h-5 w-5" />
           </Button>
         </div>
       </div>
@@ -243,10 +242,10 @@ export default function ImagesView() {
       <div className="flex items-center relative">
         <input
           type="text"
-          placeholder="Search images by repository or tag..."
+          placeholder="Search images..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          className="flex-1 px-3 lg:px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm lg:text-base"
         />
         {searchTerm && (
           <button

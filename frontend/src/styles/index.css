@@ -63,11 +63,6 @@
 
 /* Mobile-friendly touch targets */
 @media (max-width: 1023px) {
-  button, a, input[type="checkbox"], input[type="radio"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
   /* Prevent zoom on input focus on iOS */
   input, select, textarea {
     font-size: 16px !important;

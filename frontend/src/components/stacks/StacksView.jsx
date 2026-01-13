@@ -830,55 +830,54 @@ export default function StacksView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Stacks</h1>
-          <p className="mt-2 text-slate-400">
+          <h1 className="text-2xl lg:text-3xl font-bold text-white">Stacks</h1>
+          <p className="mt-1 lg:mt-2 text-sm lg:text-base text-slate-400">
             Manage your Docker Compose stacks • {stacks.length} total
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="primary"
             onClick={() => setShowCreateModal(true)}
             className="flex items-center"
           >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Create Stack
+            <PlusIcon className="h-5 w-5 lg:mr-2" />
+            <span className="hidden sm:inline">Create Stack</span>
           </Button>
           <Button
             variant="secondary"
             onClick={() => setShowConvertModal(true)}
             className="flex items-center"
           >
-            <ArrowPathIcon className="h-5 w-5 mr-2" />
-            Convert Docker Run
+            <ArrowPathIcon className="h-5 w-5 lg:mr-2" />
+            <span className="hidden sm:inline">Convert</span>
           </Button>
           <Button
             variant="secondary"
             onClick={() => setShowGitCloneModal(true)}
             className="flex items-center"
           >
-            <DocumentTextIcon className="h-5 w-5 mr-2" />
-            Clone from GitHub
+            <DocumentTextIcon className="h-5 w-5 lg:mr-2" />
+            <span className="hidden sm:inline">Clone</span>
           </Button>
           <Button variant="secondary" onClick={loadStacks}>
-            <ArrowPathIcon className="h-5 w-5 mr-2" />
-            Refresh
+            <ArrowPathIcon className="h-5 w-5" />
           </Button>
         </div>
       </div>
 
       {/* Search Bar and Filters */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="flex-1 relative">
           <input
             type="text"
-            placeholder="Search stacks by name or status..."
+            placeholder="Search stacks..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full px-3 lg:px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm lg:text-base"
           />
           {searchTerm && (
             <button
@@ -892,7 +891,7 @@ export default function StacksView() {
             </button>
           )}
         </div>
-        <label className="flex items-center gap-2 cursor-pointer select-none">
+        <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
           <input
             type="checkbox"
             checked={showRunningOnly}
