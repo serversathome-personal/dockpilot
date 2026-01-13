@@ -108,6 +108,7 @@ services:
       - NODE_ENV=production
       - PORT=5000
       - STACKS_DIR=/stacks
+      - TZ=America/New_York  # Your timezone for scheduled tasks
       # Optional: Set user/group for created stacks (useful for LinuxServer.io containers)
       # - PUID=1000
       # - PGID=1000
@@ -170,6 +171,7 @@ docker run -d \
   -e NODE_ENV=production \
   -e PORT=5000 \
   -e STACKS_DIR=/stacks \
+  -e TZ=America/New_York \
   ghcr.io/serversathome/dockpilot:latest
 ```
 
@@ -184,6 +186,7 @@ docker run -d \
   -e NODE_ENV=production \
   -e PORT=5000 \
   -e STACKS_DIR=/mnt/tank/stacks \
+  -e TZ=America/New_York \
   ghcr.io/serversathome/dockpilot:latest
 ```
 
@@ -209,6 +212,9 @@ docker run -d \
 | `PORT` | `5000` | Server port (serves both API and frontend in production) |
 | `STACKS_DIR` | `/stacks` | Stack storage directory |
 | `DOCKER_HOST` | `unix:///var/run/docker.sock` | Docker socket path |
+| `TZ` | `UTC` | Timezone for scheduled tasks (e.g., `America/New_York`) |
+| `PUID` | - | User ID for created stack files (optional) |
+| `PGID` | - | Group ID for created stack files (optional) |
 
 ## 🏗️ Architecture
 

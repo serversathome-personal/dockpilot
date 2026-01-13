@@ -18,6 +18,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - STACKS_DIR=/stacks
+      - TZ=${TZ:-UTC}
       # TrueNAS/Permissions: Set PUID and PGID to match your host user
       - PUID=${PUID:-0}
       - PGID=${PGID:-0}
