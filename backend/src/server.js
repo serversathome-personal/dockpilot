@@ -99,6 +99,11 @@ const startServer = async () => {
       await notificationService.initialize();
       await notificationService.startEventListener();
       logger.info('Notification service initialized');
+
+      // Initialize registry service to restore saved credentials
+      const { default: registryService } = await import('./services/registry.service.js');
+      await registryService.initialize();
+      logger.info('Registry service initialized');
     } catch (error) {
       logger.error('Failed to connect to Docker:', error);
       logger.warn('Docker is not available. Some features may not work.');
