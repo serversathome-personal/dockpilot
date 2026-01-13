@@ -31,7 +31,7 @@ export default function Table({ columns, data, onRowClick }) {
   return (
     <div className="bg-glass-dark backdrop-blur-xl rounded-lg border border-glass-border shadow-glass overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-glass-border table-fixed">
+        <table className="min-w-full divide-y divide-glass-border">
           <thead className="bg-glass-darker">
             <tr>
               {columns.map((column) => (
@@ -39,18 +39,18 @@ export default function Table({ columns, data, onRowClick }) {
                   key={column.key}
                   onClick={() => column.sortable && handleSort(column.key)}
                   className={clsx(
-                    'px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider',
+                    'px-3 lg:px-6 py-2 lg:py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider whitespace-nowrap',
                     column.sortable && 'cursor-pointer hover:text-white transition-colors'
                   )}
                 >
                   <div className="flex items-center space-x-1">
                     <span>{column.label}</span>
                     {column.sortable && sortConfig.key === column.key && (
-                      <span className="ml-2">
+                      <span className="ml-1 lg:ml-2">
                         {sortConfig.direction === 'asc' ? (
-                          <ChevronUpIcon className="h-4 w-4" />
+                          <ChevronUpIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                         ) : (
-                          <ChevronDownIcon className="h-4 w-4" />
+                          <ChevronDownIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                         )}
                       </span>
                     )}
@@ -64,7 +64,7 @@ export default function Table({ columns, data, onRowClick }) {
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-6 py-12 text-center text-sm text-slate-400"
+                  className="px-3 lg:px-6 py-8 lg:py-12 text-center text-sm text-slate-400"
                 >
                   No data available
                 </td>
@@ -82,7 +82,7 @@ export default function Table({ columns, data, onRowClick }) {
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className="px-6 py-4 text-sm text-slate-300 break-words"
+                      className="px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-sm text-slate-300 break-words"
                     >
                       {column.render ? column.render(row[column.key], row) : row[column.key]}
                     </td>

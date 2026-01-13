@@ -10,8 +10,14 @@ export const createUISlice = (set) => ({
   // Notification/toast states
   notifications: [],
 
+  // Mobile sidebar state
+  sidebarOpen: false,
+
   // Actions
   setLoading: (isLoading, message = '') => set({ isLoading, loadingMessage: message }),
+
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
   openModal: (modalType, data = null) => set({
     activeModal: modalType,

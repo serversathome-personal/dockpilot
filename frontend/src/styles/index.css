@@ -34,11 +34,11 @@
   }
 
   .glass-input {
-    @apply bg-glass-light backdrop-blur-sm border border-glass-border rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply bg-glass-light backdrop-blur-sm border border-glass-border rounded-lg px-3 lg:px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm lg:text-base;
   }
 
   .glass-select {
-    @apply bg-glass-light backdrop-blur-sm border border-glass-border rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply bg-glass-light backdrop-blur-sm border border-glass-border rounded-lg px-3 lg:px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm lg:text-base;
   }
 
   .text-gradient {
@@ -58,5 +58,18 @@
 
   .animate-slide-in {
     animation: slide-in 0.3s ease-out;
+  }
+}
+
+/* Mobile-friendly touch targets */
+@media (max-width: 1023px) {
+  button, a, input[type="checkbox"], input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent zoom on input focus on iOS */
+  input, select, textarea {
+    font-size: 16px !important;
   }
 }

@@ -13,13 +13,13 @@ export default function Layout() {
         <Sidebar />
 
         {/* Main content area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden w-full">
           {/* Header */}
           <Header />
 
           {/* Page content */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="w-full max-w-full px-6 py-8">
+            <div className="w-full max-w-full px-3 sm:px-4 lg:px-6 py-4 lg:py-8">
               <Outlet />
             </div>
           </main>
