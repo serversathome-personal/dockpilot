@@ -419,7 +419,7 @@ class NotificationService {
   }
 
   /**
-   * Notify that an image has been updated
+   * Notify that an image has been updated (single image)
    */
   async notifyImageUpdated(imageName, containerNames = []) {
     const friendlyName = this.formatImageName(imageName);
@@ -435,6 +435,70 @@ class NotificationService {
       'success',
       'imageUpdated'
     );
+  }
+
+  /**
+   * Notify that a batch of updates has completed
+   * @param {Array} results - Array of update results
+   */
+  async notifyBatchUpdateCompleted(results) {
+    if (!results || results.length === 0) return;
+
+    const successful = results.filter(r => r.status === 'completed');
+    const failed = results.filter(r => r.status === 'failed');
+
+    // Single update - use the simpler format
+    if (results.length === 1) {
+      const result = results[0];
+      if (result.status === 'completed') {
+        const containerNames = result.restartedContainers?.map(c => c.name) || [];
+        await this.notifyImageUpdated(result.image, containerNames);
+      } else {
+        await this.notifyImageUpdateFailed(result.image, result.error);
+      }
+      return;
+    }
+
+    // Batch update - consolidated notification
+    let title, body, priority;
+
+    if (failed.length === 0) {
+      title = `DockPilot: ${successful.length} Updates Completed`;
+      priority = 'success';
+    } else if (successful.length === 0) {
+      title = `DockPilot: ${failed.length} Updates Failed`;
+      priority = 'error';
+    } else {
+      title = `DockPilot: Updates Completed (${successful.length} succeeded, ${failed.length} failed)`;
+      priority = 'warning';
+    }
+
+    body = '';
+
+    if (successful.length > 0) {
+      body += `Successfully updated:\n`;
+      body += successful.slice(0, 10).map(r => `  ✓ ${this.formatImageName(r.image)}`).join('\n');
+      if (successful.length > 10) {
+        body += `\n  ... and ${successful.length - 10} more`;
+      }
+    }
+
+    if (failed.length > 0) {
+      if (body) body += '\n\n';
+      body += `Failed to update:\n`;
+      body += failed.slice(0, 5).map(r => `  ✗ ${this.formatImageName(r.image)}: ${r.error || 'Unknown error'}`).join('\n');
+      if (failed.length > 5) {
+        body += `\n  ... and ${failed.length - 5} more`;
+      }
+    }
+
+    // Count total containers affected
+    const totalContainers = successful.reduce((sum, r) => sum + (r.affectedContainers || 0), 0);
+    if (totalContainers > 0) {
+      body += `\n\nTotal containers recreated: ${totalContainers}`;
+    }
+
+    await this.send(title, body, priority, 'imageUpdated');
   }
 
   /**

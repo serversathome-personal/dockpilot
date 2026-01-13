@@ -48,6 +48,11 @@ router.post('/execute', asyncHandler(async (req, res) => {
     restartContainers,
   });
 
+  // Send batch notification after all updates complete
+  notificationService.notifyBatchUpdateCompleted(results).catch(err => {
+    logger.warn('Failed to send batch update notification:', err.message);
+  });
+
   res.json({
     success: true,
     data: results,
@@ -149,6 +154,11 @@ router.post('/execute/stream', async (req, res) => {
     successful: results.filter(r => r.status === 'completed').length,
     failed: results.filter(r => r.status === 'failed').length,
     results,
+  });
+
+  // Send batch notification after all updates complete
+  notificationService.notifyBatchUpdateCompleted(results).catch(err => {
+    logger.warn('Failed to send batch update notification:', err.message);
   });
 
   res.end();

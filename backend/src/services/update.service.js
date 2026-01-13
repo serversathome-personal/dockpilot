@@ -846,10 +846,7 @@ class UpdateService {
         this.updateHistory = this.updateHistory.slice(0, 100);
       }
 
-      // Send notification
-      const containerNames = containersToRecreate.map(c => c.name);
-      await notificationService.notifyImageUpdated(imageTag, containerNames);
-
+      // Note: Notifications are sent in batch by the caller, not per-update
       logger.info(`Update completed for ${imageTag}`);
       return updateRecord;
     } catch (error) {
@@ -858,9 +855,7 @@ class UpdateService {
       updateRecord.error = error.message;
       this.updateHistory.unshift(updateRecord);
 
-      // Send failure notification
-      await notificationService.notifyImageUpdateFailed(imageTag, error.message);
-
+      // Note: Failure notifications are sent in batch by the caller
       throw error;
     }
   }
@@ -1023,10 +1018,7 @@ class UpdateService {
         this.updateHistory = this.updateHistory.slice(0, 100);
       }
 
-      // Send notification
-      const containerNames = containersToRecreate.map(c => c.name);
-      await notificationService.notifyImageUpdated(imageTag, containerNames);
-
+      // Note: Notifications are sent in batch by the caller, not per-update
       return updateRecord;
     } catch (error) {
       logger.error(`Failed to update ${imageTag}:`, error);
@@ -1034,9 +1026,7 @@ class UpdateService {
       updateRecord.error = error.message;
       this.updateHistory.unshift(updateRecord);
 
-      // Send failure notification
-      await notificationService.notifyImageUpdateFailed(imageTag, error.message);
-
+      // Note: Failure notifications are sent in batch by the caller
       throw error;
     }
   }
@@ -1164,9 +1154,11 @@ class UpdateService {
             logger.info(`Scheduled check completed: ${updatesToApply.length} updates available (check only mode)`);
           } else {
             // Apply updates
-            await this.executeMultipleUpdates(updatesToApply, {
+            const results = await this.executeMultipleUpdates(updatesToApply, {
               restartContainers: schedule.restartContainers,
             });
+            // Send batch notification for scheduled updates
+            await notificationService.notifyBatchUpdateCompleted(results);
             logger.info(`Scheduled update completed: ${updatesToApply.length} images updated`);
           }
         }
