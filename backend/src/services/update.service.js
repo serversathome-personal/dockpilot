@@ -214,54 +214,64 @@ class UpdateService {
       let created = null;
 
       try {
-        // Fetch the manifest to get config digest
-        const { stdout: manifestStdout } = await execAsync(
-          `curl -s ${authHeader} -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json" "${registryUrl}/v2/${imagePath}/manifests/${tag}" 2>/dev/null`,
+        // First fetch manifest list/index to handle multi-arch images
+        const indexAccept = 'application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json';
+        const { stdout: indexStdout } = await execAsync(
+          `curl -s ${authHeader} -H "Accept: ${indexAccept}" "${registryUrl}/v2/${imagePath}/manifests/${tag}" 2>/dev/null`,
           { timeout: 10000 }
         );
 
-        if (manifestStdout.trim()) {
-          let manifest = JSON.parse(manifestStdout);
+        let configDigest = null;
 
-          // If it's a manifest list/index, get the first platform manifest (typically amd64)
-          if (manifest.manifests && Array.isArray(manifest.manifests)) {
-            // Find amd64 manifest or use the first one
-            const amd64Manifest = manifest.manifests.find(m =>
-              m.platform?.architecture === 'amd64' && m.platform?.os === 'linux'
-            ) || manifest.manifests[0];
+        if (indexStdout.trim()) {
+          const indexData = JSON.parse(indexStdout);
+
+          // Check if this is a manifest list/index (multi-arch)
+          if (indexData.manifests && Array.isArray(indexData.manifests)) {
+            // Find amd64 manifest, skip attestation manifests
+            const amd64Manifest = indexData.manifests.find(m =>
+              m.platform?.architecture === 'amd64' &&
+              m.platform?.os === 'linux' &&
+              !m.annotations?.['vnd.docker.reference.type']
+            ) || indexData.manifests.find(m =>
+              m.platform?.architecture !== 'unknown' && !m.annotations?.['vnd.docker.reference.type']
+            );
 
             if (amd64Manifest?.digest) {
               // Fetch the platform-specific manifest
-              const { stdout: platformManifestStdout } = await execAsync(
-                `curl -s ${authHeader} -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json" "${registryUrl}/v2/${imagePath}/manifests/${amd64Manifest.digest}" 2>/dev/null`,
+              const manifestAccept = 'application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.v2+json';
+              const { stdout: platformStdout } = await execAsync(
+                `curl -s ${authHeader} -H "Accept: ${manifestAccept}" "${registryUrl}/v2/${imagePath}/manifests/${amd64Manifest.digest}" 2>/dev/null`,
                 { timeout: 10000 }
               );
-              if (platformManifestStdout.trim()) {
-                manifest = JSON.parse(platformManifestStdout);
+              if (platformStdout.trim()) {
+                const platformManifest = JSON.parse(platformStdout);
+                configDigest = platformManifest.config?.digest;
               }
             }
+          } else if (indexData.config?.digest) {
+            // Single-arch image, config digest is directly available
+            configDigest = indexData.config.digest;
           }
+        }
 
-          // Get the config digest from the manifest
-          const configDigest = manifest.config?.digest;
-          if (configDigest) {
-            // Fetch the config blob which contains labels
-            const { stdout: configStdout } = await execAsync(
-              `curl -s ${authHeader} -H "Accept: application/vnd.docker.container.image.v1+json,application/vnd.oci.image.config.v1+json" "${registryUrl}/v2/${imagePath}/blobs/${configDigest}" 2>/dev/null`,
-              { timeout: 10000 }
-            );
+        // Fetch the config blob which contains labels
+        if (configDigest) {
+          const { stdout: configStdout } = await execAsync(
+            `curl -sL ${authHeader} "${registryUrl}/v2/${imagePath}/blobs/${configDigest}" 2>/dev/null`,
+            { timeout: 10000 }
+          );
 
-            if (configStdout.trim()) {
-              const config = JSON.parse(configStdout);
-              created = config.created || null;
+          if (configStdout.trim()) {
+            const config = JSON.parse(configStdout);
+            created = config.created || null;
 
-              // Extract version from labels
-              const labels = config.config?.Labels || {};
-              version = labels['org.opencontainers.image.version'] ||
-                        labels['version'] ||
-                        labels['VERSION'] ||
-                        null;
-            }
+            // Extract version from labels
+            const labels = config.config?.Labels || {};
+            version = labels['org.opencontainers.image.version'] ||
+                      labels['version'] ||
+                      labels['VERSION'] ||
+                      null;
           }
         }
       } catch (e) {

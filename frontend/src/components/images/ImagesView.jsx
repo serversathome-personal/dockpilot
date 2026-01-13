@@ -17,6 +17,7 @@ export default function ImagesView() {
   const [pullImageName, setPullImageName] = useState('');
   const [isPulling, setIsPulling] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDangling, setShowDangling] = useState(false);
 
   useEffect(() => {
     loadImages();
@@ -193,6 +194,27 @@ export default function ImagesView() {
     },
   ];
 
+  // Filter images based on dangling toggle and search
+  const filteredImages = images.filter((img) => {
+    // Filter out dangling images unless toggle is on
+    if (!showDangling && img.repository === '<none>') {
+      return false;
+    }
+    // Apply search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      return (
+        img.repository?.toLowerCase().includes(search) ||
+        img.tag?.toLowerCase().includes(search) ||
+        img.tags?.some(t => t.toLowerCase().includes(search))
+      );
+    }
+    return true;
+  });
+
+  // Count dangling images
+  const danglingCount = images.filter(img => img.repository === '<none>').length;
+
   // Calculate total size
   const totalSize = images.reduce((acc, img) => acc + (img.size || 0), 0);
 
@@ -210,7 +232,7 @@ export default function ImagesView() {
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-white">Images</h1>
           <p className="mt-1 lg:mt-2 text-sm lg:text-base text-slate-400">
-            Manage your Docker images • {images.length} total • {formatBytes(totalSize)}
+            Manage your Docker images • {filteredImages.length} shown • {formatBytes(totalSize)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -238,39 +260,44 @@ export default function ImagesView() {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="flex items-center relative">
-        <input
-          type="text"
-          placeholder="Search images..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-3 lg:px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm lg:text-base"
-        />
-        {searchTerm && (
-          <button
-            onClick={() => setSearchTerm('')}
-            className="absolute right-3 text-slate-400 hover:text-white transition-colors"
-            title="Clear search"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+      {/* Search Bar and Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Search images..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 lg:px-4 py-2 pr-10 bg-glass-dark border border-glass-border rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm lg:text-base"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+              title="Clear search"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {danglingCount > 0 && (
+          <label className="flex items-center space-x-2 text-sm text-slate-300 whitespace-nowrap cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showDangling}
+              onChange={(e) => setShowDangling(e.target.checked)}
+              className="w-4 h-4 text-primary bg-glass-light border-glass-border rounded focus:ring-primary"
+            />
+            <span>Show dangling ({danglingCount})</span>
+          </label>
         )}
       </div>
 
       <Table
         columns={columns}
-        data={images.filter((img) => {
-          if (!searchTerm) return true;
-          const search = searchTerm.toLowerCase();
-          return (
-            img.repository?.toLowerCase().includes(search) ||
-            img.tag?.toLowerCase().includes(search) ||
-            img.tags?.some(t => t.toLowerCase().includes(search))
-          );
-        })}
+        data={filteredImages}
       />
 
       {/* Delete Confirmation Modal */}
