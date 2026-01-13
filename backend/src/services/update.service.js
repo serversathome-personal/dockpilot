@@ -56,18 +56,35 @@ class UpdateService {
         const [repository, currentTag] = tag.split(':');
 
         try {
-          // Check if newer version exists
-          const latestDigest = await this.getLatestImageDigest(repository, currentTag || 'latest');
-          const currentDigest = image.digests?.[0] || image.id;
+          // Check if newer version exists and get additional info
+          const remoteInfo = await this.getRemoteImageInfo(repository, currentTag || 'latest');
 
-          if (latestDigest && latestDigest !== currentDigest) {
+          // Extract just the sha256:xxx part from RepoDigests (format: repo@sha256:xxx)
+          let currentDigest = image.id;
+          if (image.digests && image.digests.length > 0) {
+            const digestPart = image.digests[0].split('@')[1];
+            if (digestPart) {
+              currentDigest = digestPart;
+            }
+          }
+
+          if (remoteInfo && remoteInfo.digest && remoteInfo.digest !== currentDigest) {
+            // Get local image details for version/created info
+            const localInfo = await this.getLocalImageInfo(`${repository}:${currentTag || 'latest'}`);
+
             return {
               repository,
               currentTag: currentTag || 'latest',
               currentDigest: currentDigest.substring(0, 12),
-              latestDigest: latestDigest.substring(0, 12),
+              latestDigest: remoteInfo.digest.substring(0, 12),
               hasUpdate: true,
               size: image.size,
+              // Version info
+              currentVersion: localInfo?.version || null,
+              newVersion: remoteInfo?.version || null,
+              // Creation dates
+              currentCreated: localInfo?.created || image.created,
+              newCreated: remoteInfo?.created || null,
             };
           }
         } catch (error) {
@@ -84,6 +101,101 @@ class UpdateService {
     } catch (error) {
       logger.error('Failed to check for updates:', error);
       throw new Error('Failed to check for updates');
+    }
+  }
+
+  /**
+   * Get local image info including version labels
+   * @param {string} imageTag - Full image tag
+   * @returns {Promise<Object>} Image info
+   */
+  async getLocalImageInfo(imageTag) {
+    try {
+      const { stdout } = await execAsync(
+        `docker inspect ${imageTag} --format '{{json .}}'`,
+        { timeout: 5000 }
+      );
+
+      if (!stdout.trim()) return null;
+
+      const info = JSON.parse(stdout);
+      const labels = info.Config?.Labels || {};
+
+      return {
+        created: info.Created,
+        version: labels['org.opencontainers.image.version'] ||
+                 labels['version'] ||
+                 labels['VERSION'] ||
+                 null,
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Get remote image info from registry
+   * @param {string} repository - Image repository
+   * @param {string} tag - Image tag
+   * @returns {Promise<Object>} Remote image info
+   */
+  async getRemoteImageInfo(repository, tag) {
+    try {
+      // Get manifest - we need the manifest digest, not config digest
+      const { stdout: manifestStdout } = await execAsync(
+        `docker manifest inspect ${repository}:${tag} --insecure 2>/dev/null || echo ""`,
+        { timeout: 15000 }
+      );
+
+      if (!manifestStdout.trim()) return null;
+
+      const manifest = JSON.parse(manifestStdout);
+
+      // For manifest lists (multi-arch), get the digest of the first matching manifest
+      // For single manifests, use the config digest as a proxy
+      let digest = null;
+
+      if (manifest.manifests && manifest.manifests.length > 0) {
+        // Multi-arch image - find digest for current platform or use first
+        const currentArch = process.arch === 'x64' ? 'amd64' : process.arch;
+        const matchingManifest = manifest.manifests.find(m =>
+          m.platform?.architecture === currentArch
+        ) || manifest.manifests[0];
+        digest = matchingManifest.digest;
+      } else if (manifest.config?.digest) {
+        // Single arch image - use config digest
+        digest = manifest.config.digest;
+      }
+
+      // Try to get more info using buildx imagetools
+      let version = null;
+      let created = null;
+
+      try {
+        const { stdout: toolsStdout } = await execAsync(
+          `docker buildx imagetools inspect ${repository}:${tag} --raw 2>/dev/null | head -c 50000`,
+          { timeout: 10000 }
+        );
+
+        if (toolsStdout.trim()) {
+          const toolsInfo = JSON.parse(toolsStdout);
+          // Try to extract created time and version from config
+          if (toolsInfo.created) {
+            created = toolsInfo.created;
+          }
+          if (toolsInfo.config?.Labels) {
+            version = toolsInfo.config.Labels['org.opencontainers.image.version'] ||
+                      toolsInfo.config.Labels['version'] ||
+                      null;
+          }
+        }
+      } catch (e) {
+        // buildx imagetools not available or failed, continue without extra info
+      }
+
+      return { digest, version, created };
+    } catch (error) {
+      return null;
     }
   }
 

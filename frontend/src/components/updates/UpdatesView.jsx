@@ -273,6 +273,21 @@ export default function UpdatesView() {
   const allSelected = availableUpdates.length > 0 && selectedUpdates.length === availableUpdates.length;
   const someSelected = selectedUpdates.length > 0 && selectedUpdates.length < availableUpdates.length;
 
+  const formatAge = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 30) return `${diffDays} days ago`;
+    if (diffDays < 60) return '1 month ago';
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+    return `${Math.floor(diffDays / 365)} year(s) ago`;
+  };
+
   const updatesColumns = [
     {
       key: 'select',
@@ -310,18 +325,44 @@ export default function UpdatesView() {
       ),
     },
     {
+      key: 'currentVersion',
+      label: 'Current',
+      sortable: false,
+      render: (currentVersion, update) => (
+        <div className="text-sm">
+          {currentVersion ? (
+            <div className="text-slate-300">{currentVersion}</div>
+          ) : (
+            <div className="text-slate-400 text-xs">
+              {formatAge(update.currentCreated) || 'Unknown'}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'newVersion',
+      label: 'Available',
+      sortable: false,
+      render: (newVersion, update) => (
+        <div className="text-sm">
+          {newVersion ? (
+            <div className="text-success font-medium">{newVersion}</div>
+          ) : update.newCreated ? (
+            <div className="text-success text-xs">
+              Built {formatAge(update.newCreated)}
+            </div>
+          ) : (
+            <Badge variant="warning" className="text-xs">New</Badge>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'size',
       label: 'Size',
       sortable: true,
       render: (size) => formatBytes(size),
-    },
-    {
-      key: 'hasUpdate',
-      label: 'Status',
-      sortable: false,
-      render: () => (
-        <Badge variant="warning">Update Available</Badge>
-      ),
     },
   ];
 
