@@ -42,11 +42,16 @@ class UpdateService {
       const images = await dockerService.listImages();
       const updates = [];
 
-      for (const image of images) {
-        if (!image.tags || image.tags.length === 0 || image.tags[0] === '<none>:<none>') {
-          continue;
-        }
+      // Filter valid images first
+      const validImages = images.filter(image =>
+        image.tags && image.tags.length > 0 && image.tags[0] !== '<none>:<none>'
+      );
 
+      logger.info(`Checking updates for ${validImages.length} images (parallel, concurrency: 10)`);
+
+      // Process images in parallel with concurrency limit
+      const concurrencyLimit = 10;
+      const results = await this.processInParallel(validImages, async (image) => {
         const tag = image.tags[0];
         const [repository, currentTag] = tag.split(':');
 
@@ -56,26 +61,58 @@ class UpdateService {
           const currentDigest = image.digests?.[0] || image.id;
 
           if (latestDigest && latestDigest !== currentDigest) {
-            updates.push({
+            return {
               repository,
               currentTag: currentTag || 'latest',
               currentDigest: currentDigest.substring(0, 12),
               latestDigest: latestDigest.substring(0, 12),
               hasUpdate: true,
               size: image.size,
-            });
+            };
           }
         } catch (error) {
           logger.warn(`Failed to check update for ${tag}:`, error.message);
         }
-      }
+        return null;
+      }, concurrencyLimit);
 
-      logger.info(`Found ${updates.length} available updates`);
-      return updates;
+      // Filter out null results
+      const filteredUpdates = results.filter(result => result !== null);
+
+      logger.info(`Found ${filteredUpdates.length} available updates`);
+      return filteredUpdates;
     } catch (error) {
       logger.error('Failed to check for updates:', error);
       throw new Error('Failed to check for updates');
     }
+  }
+
+  /**
+   * Process items in parallel with concurrency limit
+   * @param {Array} items - Items to process
+   * @param {Function} fn - Async function to run on each item
+   * @param {number} concurrency - Max concurrent operations
+   * @returns {Promise<Array>} Results array
+   */
+  async processInParallel(items, fn, concurrency) {
+    const results = [];
+    const executing = new Set();
+
+    for (const item of items) {
+      const promise = fn(item).then(result => {
+        executing.delete(promise);
+        return result;
+      });
+
+      results.push(promise);
+      executing.add(promise);
+
+      if (executing.size >= concurrency) {
+        await Promise.race(executing);
+      }
+    }
+
+    return Promise.all(results);
   }
 
   /**
@@ -86,9 +123,10 @@ class UpdateService {
    */
   async getLatestImageDigest(repository, tag) {
     try {
-      // Use Docker CLI to inspect the remote image
+      // Use Docker CLI to inspect the remote image with timeout
       const { stdout } = await execAsync(
-        `docker manifest inspect ${repository}:${tag} --insecure 2>/dev/null || echo ""`
+        `docker manifest inspect ${repository}:${tag} --insecure 2>/dev/null || echo ""`,
+        { timeout: 15000 } // 15 second timeout per image
       );
 
       if (!stdout.trim()) {
@@ -98,7 +136,7 @@ class UpdateService {
       const manifest = JSON.parse(stdout);
       return manifest.config?.digest || null;
     } catch (error) {
-      // Image might not be available in registry or requires authentication
+      // Image might not be available in registry, requires auth, or timed out
       return null;
     }
   }
