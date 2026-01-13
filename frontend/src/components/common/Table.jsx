@@ -16,8 +16,12 @@ export default function Table({ columns, data, onRowClick }) {
   const sortedData = [...data].sort((a, b) => {
     if (!sortConfig.key) return 0;
 
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
+    let aValue = a[sortConfig.key];
+    let bValue = b[sortConfig.key];
+
+    // Case-insensitive comparison for strings
+    if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+    if (typeof bValue === 'string') bValue = bValue.toLowerCase();
 
     if (aValue < bValue) {
       return sortConfig.direction === 'asc' ? -1 : 1;
@@ -39,7 +43,7 @@ export default function Table({ columns, data, onRowClick }) {
                   key={column.key}
                   onClick={() => column.sortable && handleSort(column.key)}
                   className={clsx(
-                    'px-3 lg:px-6 py-2 lg:py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider whitespace-nowrap',
+                    'px-2 lg:px-4 py-2 text-left text-xs font-medium text-slate-300 uppercase tracking-wider whitespace-nowrap',
                     column.sortable && 'cursor-pointer hover:text-white transition-colors'
                   )}
                 >
@@ -64,7 +68,7 @@ export default function Table({ columns, data, onRowClick }) {
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-3 lg:px-6 py-8 lg:py-12 text-center text-sm text-slate-400"
+                  className="px-2 lg:px-4 py-8 lg:py-12 text-center text-sm text-slate-400"
                 >
                   No data available
                 </td>
@@ -82,7 +86,7 @@ export default function Table({ columns, data, onRowClick }) {
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className="px-3 lg:px-6 py-3 lg:py-4 text-xs lg:text-sm text-slate-300 break-words"
+                      className="px-2 lg:px-4 py-2 lg:py-3 text-xs lg:text-sm text-slate-300 break-words"
                     >
                       {column.render ? column.render(row[column.key], row) : row[column.key]}
                     </td>

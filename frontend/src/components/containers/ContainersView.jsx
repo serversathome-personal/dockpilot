@@ -269,7 +269,7 @@ export default function ContainersView() {
       label: 'Name',
       sortable: true,
       render: (name) => (
-        <span className="font-medium text-white">{name || 'N/A'}</span>
+        <span className="font-medium text-white truncate block max-w-[150px]" title={name}>{name || 'N/A'}</span>
       ),
     },
     {
@@ -369,7 +369,7 @@ export default function ContainersView() {
       label: 'Actions',
       sortable: false,
       render: (_, container) => (
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center gap-1">
           {container.state?.toLowerCase() === 'running' && (
             <>
               <button
@@ -378,40 +378,40 @@ export default function ContainersView() {
                   setShellContainer(container);
                   setShowShellModal(true);
                 }}
-                className="p-1 text-cyan-400 hover:text-cyan-300 transition-colors"
+                className="text-cyan-400 hover:text-cyan-300 transition-colors"
                 title="Shell"
               >
-                <CommandLineIcon className="h-4 w-4" />
+                <CommandLineIcon className="h-5 w-5" />
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAction('stop', container);
                 }}
-                className="p-1 text-warning hover:text-warning-light transition-colors"
+                className="text-warning hover:text-warning-light transition-colors"
                 title="Stop"
               >
-                <StopIcon className="h-4 w-4" />
+                <StopIcon className="h-5 w-5" />
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAction('restart', container);
                 }}
-                className="p-1 text-primary hover:text-primary-light transition-colors"
+                className="text-primary hover:text-primary-light transition-colors"
                 title="Restart"
               >
-                <ArrowPathIcon className="h-4 w-4" />
+                <ArrowPathIcon className="h-5 w-5" />
               </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleAction('pause', container);
                 }}
-                className="p-1 text-slate-400 hover:text-white transition-colors"
+                className="text-slate-400 hover:text-white transition-colors"
                 title="Pause"
               >
-                <PauseIcon className="h-4 w-4" />
+                <PauseIcon className="h-5 w-5" />
               </button>
             </>
           )}
@@ -421,10 +421,10 @@ export default function ContainersView() {
                 e.stopPropagation();
                 handleAction('start', container);
               }}
-              className="p-1 text-success hover:text-success-light transition-colors"
+              className="text-success hover:text-success-light transition-colors"
               title="Start"
             >
-              <PlayIcon className="h-4 w-4" />
+              <PlayIcon className="h-5 w-5" />
             </button>
           )}
           {container.state?.toLowerCase() === 'paused' && (
@@ -433,10 +433,10 @@ export default function ContainersView() {
                 e.stopPropagation();
                 handleAction('unpause', container);
               }}
-              className="p-1 text-success hover:text-success-light transition-colors"
+              className="text-success hover:text-success-light transition-colors"
               title="Unpause"
             >
-              <PlayIcon className="h-4 w-4" />
+              <PlayIcon className="h-5 w-5" />
             </button>
           )}
           <button
@@ -446,10 +446,10 @@ export default function ContainersView() {
               setActiveTab('logs');
               setShowDetailModal(true);
             }}
-            className="p-1 text-slate-400 hover:text-white transition-colors"
+            className="text-slate-400 hover:text-white transition-colors"
             title="View Logs"
           >
-            <DocumentTextIcon className="h-4 w-4" />
+            <DocumentTextIcon className="h-5 w-5" />
           </button>
           <button
             onClick={(e) => {
@@ -457,10 +457,10 @@ export default function ContainersView() {
               setSelectedContainer(container);
               setShowDeleteModal(true);
             }}
-            className="p-1 text-danger hover:text-danger-light transition-colors"
+            className="text-danger hover:text-danger-light transition-colors"
             title="Remove"
           >
-            <TrashIcon className="h-4 w-4" />
+            <TrashIcon className="h-5 w-5" />
           </button>
         </div>
       ),
