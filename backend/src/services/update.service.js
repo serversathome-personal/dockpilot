@@ -94,28 +94,9 @@ class UpdateService {
           // Use RepoDigests for comparison (same as Watchtower)
           const localDigests = image.digests || [];
 
-          // Debug logging for digest comparison
+          // Check if digests match
           if (!remoteInfo || !remoteInfo.digest) {
             logger.debug(`${repository}:${currentTag} - No remote digest found`);
-          } else {
-            // Log raw values for first few images for debugging
-            if (repository.includes('n8n') || repository.includes('nginx') || repository.includes('emby')) {
-              logger.info(`DEBUG ${repository}:${currentTag}:`);
-              logger.info(`  Remote digest raw: "${remoteInfo.digest}"`);
-              logger.info(`  Local digests: ${JSON.stringify(localDigests)}`);
-              if (localDigests[0]) {
-                const parts = localDigests[0].split('@');
-                logger.info(`  Local digest extracted: "${parts[1] || 'none'}"`);
-              }
-            }
-
-            const matches = this.digestsMatch(localDigests, remoteInfo.digest);
-            if (matches) {
-              logger.debug(`${repository}:${currentTag} - Up to date`);
-            } else {
-              const localDigest = localDigests[0]?.split('@')[1] || image.id;
-              logger.debug(`${repository}:${currentTag} - Update available (local: ${this.normalizeDigest(localDigest)?.substring(0, 12)}, remote: ${this.normalizeDigest(remoteInfo.digest)?.substring(0, 12)})`);
-            }
           }
 
           // Check if digests match - if not, update is available
@@ -130,6 +111,7 @@ class UpdateService {
               currentDigest: this.normalizeDigest(localDigest).substring(0, 12),
               latestDigest: this.normalizeDigest(remoteInfo.digest).substring(0, 12),
               hasUpdate: true,
+              updateType: 'registry', // New image available in registry
               size: image.size,
               // Version info
               currentVersion: localInfo?.version || null,
@@ -145,11 +127,29 @@ class UpdateService {
         return null;
       }, concurrencyLimit);
 
-      // Filter out null results
-      const filteredUpdates = results.filter(result => result !== null);
+      // Filter out null results (registry updates)
+      const registryUpdates = results.filter(result => result !== null);
 
-      logger.info(`Found ${filteredUpdates.length} available updates`);
-      return filteredUpdates;
+      // Also check for containers running outdated local images
+      const outdatedContainers = await this.checkOutdatedContainers();
+
+      // Combine both types of updates
+      const allUpdates = [...registryUpdates, ...outdatedContainers];
+
+      // Deduplicate by repository:tag (prefer registry updates over container updates)
+      const seen = new Set();
+      const dedupedUpdates = allUpdates.filter(update => {
+        const key = `${update.repository}:${update.currentTag}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      const registryCount = dedupedUpdates.filter(u => u.updateType === 'registry').length;
+      const containerCount = dedupedUpdates.filter(u => u.updateType === 'container').length;
+      logger.info(`Found ${dedupedUpdates.length} updates (${registryCount} registry, ${containerCount} outdated containers)`);
+
+      return dedupedUpdates;
     } catch (error) {
       logger.error('Failed to check for updates:', error);
       throw new Error('Failed to check for updates');
@@ -186,6 +186,88 @@ class UpdateService {
   }
 
   /**
+   * Check for containers running outdated local images
+   * This catches cases where the image was pulled but container not recreated
+   * @returns {Promise<Array>} Array of containers needing recreation
+   */
+  async checkOutdatedContainers() {
+    try {
+      const containers = await dockerService.listContainers({ all: true });
+      const outdated = [];
+
+      for (const container of containers) {
+        // Skip containers without proper image info
+        if (!container.image || !container.imageId) continue;
+
+        // Get the image tag (e.g., "n8nio/n8n:latest")
+        const imageTag = container.image;
+
+        // Skip images without proper tags
+        if (imageTag.startsWith('sha256:') || !imageTag.includes(':')) continue;
+
+        try {
+          // Get current image ID for this tag
+          const { stdout } = await execAsync(
+            `docker images "${imageTag}" --format '{{.ID}}' 2>/dev/null | head -1`,
+            { timeout: 5000 }
+          );
+
+          const currentImageId = stdout.trim();
+          if (!currentImageId) continue;
+
+          // Container's image ID (short form for comparison)
+          const containerImageId = container.imageId.replace('sha256:', '').substring(0, 12);
+          const currentImageIdShort = currentImageId.substring(0, 12);
+
+          // If they differ, the container needs to be recreated
+          if (containerImageId !== currentImageIdShort) {
+            // Get image details for version info
+            const localInfo = await this.getLocalImageInfo(imageTag);
+            const [repository, tag] = imageTag.split(':');
+
+            // Get version from container's old image if possible
+            let oldVersion = null;
+            try {
+              const { stdout: oldInfo } = await execAsync(
+                `docker inspect ${container.imageId} --format '{{index .Config.Labels "org.opencontainers.image.version"}}' 2>/dev/null`,
+                { timeout: 3000 }
+              );
+              oldVersion = oldInfo.trim() || null;
+            } catch (e) {
+              // Old image might be deleted
+            }
+
+            outdated.push({
+              repository,
+              currentTag: tag || 'latest',
+              currentDigest: containerImageId,
+              latestDigest: currentImageIdShort,
+              hasUpdate: true,
+              updateType: 'container', // Distinguishes from 'registry' updates
+              containerId: container.id,
+              containerName: container.name,
+              currentVersion: oldVersion,
+              newVersion: localInfo?.version || null,
+              currentCreated: null,
+              newCreated: localInfo?.created || null,
+            });
+
+            logger.debug(`Container ${container.name} running outdated image: ${containerImageId} vs ${currentImageIdShort}`);
+          }
+        } catch (error) {
+          // Skip containers we can't check
+          logger.debug(`Could not check container ${container.name}: ${error.message}`);
+        }
+      }
+
+      return outdated;
+    } catch (error) {
+      logger.error('Failed to check outdated containers:', error);
+      return [];
+    }
+  }
+
+  /**
    * Normalize digest by stripping sha256: prefix for comparison
    * @param {string} digest - Digest string
    * @returns {string} Normalized digest (hash only)
@@ -202,10 +284,7 @@ class UpdateService {
    * @returns {boolean} True if any local digest matches
    */
   digestsMatch(localDigests, remoteDigest) {
-    if (!localDigests || !remoteDigest) {
-      logger.debug(`digestsMatch: missing data - localDigests: ${localDigests?.length || 0}, remoteDigest: ${!!remoteDigest}`);
-      return false;
-    }
+    if (!localDigests || !remoteDigest) return false;
 
     // Clean and normalize remote digest (remove any whitespace/newlines)
     const cleanedRemote = remoteDigest.replace(/[\r\n\s]/g, '');
@@ -217,12 +296,6 @@ class UpdateService {
       if (parts.length < 2) continue;
 
       const normalizedLocal = this.normalizeDigest(parts[1]);
-
-      // Debug: log first comparison for troubleshooting
-      if (localDigests.indexOf(localDigest) === 0) {
-        logger.debug(`digestsMatch comparing: local="${normalizedLocal.substring(0, 16)}" vs remote="${normalizedRemote.substring(0, 16)}" (lengths: ${normalizedLocal.length} vs ${normalizedRemote.length})`);
-      }
-
       if (normalizedLocal === normalizedRemote) {
         return true;
       }

@@ -404,8 +404,31 @@ export default function UpdatesView() {
       sortable: true,
       render: (repository, update) => (
         <div>
-          <div className="text-white font-medium">{repository}</div>
-          <div className="text-xs text-slate-400">:{update.currentTag}</div>
+          <div className="flex items-center gap-2">
+            <span className="text-white font-medium">{repository}</span>
+            {update.updateType === 'container' && (
+              <span
+                className="px-1.5 py-0.5 text-[10px] font-medium bg-yellow-500/20 text-yellow-400 rounded"
+                title="Container is running an older local image - restart to use the updated image"
+              >
+                RESTART
+              </span>
+            )}
+            {update.updateType === 'registry' && (
+              <span
+                className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/20 text-primary rounded"
+                title="New image available in registry"
+              >
+                NEW
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-slate-400">
+            :{update.currentTag}
+            {update.containerName && (
+              <span className="ml-2 text-slate-500">({update.containerName})</span>
+            )}
+          </div>
         </div>
       ),
     },
