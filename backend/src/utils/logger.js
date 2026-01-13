@@ -50,14 +50,12 @@ const logger = winston.createLogger({
   ],
 });
 
-// Add console transport in development
-if (config.isDevelopment) {
-  logger.add(
-    new winston.transports.Console({
-      format: consoleFormat,
-    })
-  );
-}
+// Always add console transport for docker logs visibility
+logger.add(
+  new winston.transports.Console({
+    format: consoleFormat,
+  })
+);
 
 // Create a stream object for Morgan or other integrations
 logger.stream = {
