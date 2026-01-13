@@ -472,7 +472,12 @@ export default function UpdatesView() {
       key: 'size',
       label: 'Size',
       sortable: true,
-      render: (size) => formatBytes(size),
+      render: (size, update) => {
+        if (update.updateType === 'container') {
+          return <span className="text-slate-500 text-xs">—</span>;
+        }
+        return size ? formatBytes(size) : <span className="text-slate-500">—</span>;
+      },
     },
   ];
 

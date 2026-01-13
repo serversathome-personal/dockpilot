@@ -198,11 +198,8 @@ class UpdateService {
       logger.info(`Checking ${containers.length} containers for outdated images`);
 
       for (const container of containers) {
-        logger.info(`Processing container: ${container.name}, image: "${container.image}", imageId: "${container.imageId}"`);
-
         // Skip containers without proper image info
         if (!container.imageId) {
-          logger.info(`  Skipped ${container.name}: no imageId`);
           continue;
         }
 
@@ -217,30 +214,24 @@ class UpdateService {
             imageTag.match(/^[a-f0-9]{12,64}$/i);
 
           if (needsConfigLookup) {
-            logger.info(`Container ${container.name} needs Config.Image lookup (image: "${imageTag?.substring(0, 20)}...")`);
-
             // Try to get original image from container's Config.Image
             const { stdout: configImage } = await execAsync(
               `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
               { timeout: 5000 }
             );
             const originalImage = configImage.trim();
-            logger.info(`Container ${container.name} Config.Image: "${originalImage}"`);
 
             if (originalImage && !originalImage.startsWith('sha256:')) {
               // Add :latest if no tag specified
               imageTag = originalImage.includes(':') ? originalImage : `${originalImage}:latest`;
-              logger.info(`Container ${container.name} using imageTag: "${imageTag}"`);
             } else {
               // Can't determine original image reference, skip
-              logger.info(`Container ${container.name} skipped - can't determine image reference`);
               continue;
             }
           }
 
-          // Skip sha256: references
+          // Skip sha256: references (shouldn't happen after above, but safety check)
           if (imageTag.startsWith('sha256:')) {
-            logger.info(`  Skipped ${container.name}: sha256: reference`);
             continue;
           }
 
@@ -252,15 +243,12 @@ class UpdateService {
 
           const currentImageId = stdout.trim();
           if (!currentImageId) {
-            logger.info(`  Skipped ${container.name}: image "${imageTag}" not found locally`);
             continue;
           }
 
           // Container's image ID (short form for comparison)
           const containerImageId = container.imageId.replace('sha256:', '').substring(0, 12);
           const currentImageIdShort = currentImageId.substring(0, 12);
-
-          logger.info(`Container ${container.name}: running=${containerImageId}, current=${currentImageIdShort}, match=${containerImageId === currentImageIdShort}`);
 
           // If they differ, the container needs to be recreated
           if (containerImageId !== currentImageIdShort) {
