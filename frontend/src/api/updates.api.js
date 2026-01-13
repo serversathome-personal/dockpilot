@@ -8,4 +8,5 @@ export const updatesAPI = {
   deleteSchedule: (id) => apiClient.delete(`/updates/schedules/${id}`),
   getHistory: (params) => apiClient.get('/updates/history', { params }),
   clearHistory: () => apiClient.delete('/updates/history'),
+  getExecuteStreamUrl: () => `${apiClient.defaults.baseURL}/updates/execute/stream`,
 };

@@ -22,7 +22,7 @@ router.get('/check', asyncHandler(async (req, res) => {
 
 /**
  * POST /api/updates/execute
- * Execute update for specific images
+ * Execute update for specific images (non-streaming)
  */
 router.post('/execute', asyncHandler(async (req, res) => {
   const { images, restartContainers = false } = req.body;
@@ -45,6 +45,91 @@ router.post('/execute', asyncHandler(async (req, res) => {
     data: results,
   });
 }));
+
+/**
+ * POST /api/updates/execute/stream
+ * Execute updates with SSE progress streaming
+ */
+router.post('/execute/stream', async (req, res) => {
+  const { images, restartContainers = false } = req.body;
+
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Images array is required',
+    });
+  }
+
+  // Set up SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendEvent = (type, data) => {
+    res.write(`data: ${JSON.stringify({ type, ...data })}\n\n`);
+  };
+
+  logger.info(`Executing streaming updates for ${images.length} images`);
+
+  const total = images.length;
+  let completed = 0;
+  const results = [];
+
+  sendEvent('start', { total, message: `Starting update of ${total} image(s)` });
+
+  for (const image of images) {
+    const imageTag = `${image.repository}:${image.currentTag}`;
+
+    sendEvent('progress', {
+      current: completed + 1,
+      total,
+      image: imageTag,
+      status: 'pulling',
+      message: `Pulling ${imageTag}...`,
+    });
+
+    try {
+      const result = await updateService.executeUpdate(image.repository, image.currentTag, {
+        restartContainers,
+      });
+      results.push(result);
+
+      sendEvent('progress', {
+        current: completed + 1,
+        total,
+        image: imageTag,
+        status: 'completed',
+        message: `Updated ${imageTag}`,
+      });
+    } catch (error) {
+      results.push({
+        image: imageTag,
+        status: 'failed',
+        error: error.message,
+      });
+
+      sendEvent('progress', {
+        current: completed + 1,
+        total,
+        image: imageTag,
+        status: 'failed',
+        message: `Failed to update ${imageTag}: ${error.message}`,
+      });
+    }
+
+    completed++;
+  }
+
+  sendEvent('complete', {
+    total,
+    successful: results.filter(r => r.status === 'completed').length,
+    failed: results.filter(r => r.status === 'failed').length,
+    results,
+  });
+
+  res.end();
+});
 
 /**
  * GET /api/updates/schedules

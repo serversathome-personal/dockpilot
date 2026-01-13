@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useStore } from '../../store';
 import { updatesAPI } from '../../api/updates.api';
 import Card from '../common/Card';
@@ -22,6 +22,16 @@ export default function UpdatesView() {
   const [isChecking, setIsChecking] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [hasChecked, setHasChecked] = useState(false);
+
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [updateProgress, setUpdateProgress] = useState({
+    current: 0,
+    total: 0,
+    currentImage: '',
+    status: '',
+    logs: [],
+  });
 
   const [newSchedule, setNewSchedule] = useState({
     name: '',
@@ -75,19 +85,79 @@ export default function UpdatesView() {
       return;
     }
 
+    setIsUpdating(true);
+    setShowProgressModal(true);
+    setUpdateProgress({
+      current: 0,
+      total: selectedUpdates.length,
+      currentImage: '',
+      status: 'starting',
+      logs: [],
+    });
+
     try {
-      setIsUpdating(true);
-      const data = await updatesAPI.executeUpdates({
-        images: selectedUpdates,
-        restartContainers: true,
+      // Use fetch with streaming for SSE-like POST request
+      const response = await fetch(updatesAPI.getExecuteStreamUrl(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          images: selectedUpdates,
+          restartContainers: true,
+        }),
       });
 
-      addNotification({
-        type: 'success',
-        message: `Successfully updated ${selectedUpdates.length} image(s)`,
-      });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'progress') {
+                setUpdateProgress((prev) => ({
+                  ...prev,
+                  current: data.current,
+                  total: data.total,
+                  currentImage: data.image,
+                  status: data.status,
+                  logs: [...prev.logs, { message: data.message, status: data.status }],
+                }));
+              } else if (data.type === 'complete') {
+                setUpdateProgress((prev) => ({
+                  ...prev,
+                  status: 'complete',
+                  logs: [...prev.logs, {
+                    message: `Completed: ${data.successful} succeeded, ${data.failed} failed`,
+                    status: 'complete',
+                  }],
+                }));
+
+                addNotification({
+                  type: data.failed > 0 ? 'warning' : 'success',
+                  message: `Updated ${data.successful} image(s)${data.failed > 0 ? `, ${data.failed} failed` : ''}`,
+                });
+              }
+            } catch (e) {
+              console.error('Failed to parse SSE data:', e);
+            }
+          }
+        }
+      }
 
       setSelectedUpdates([]);
+      // Refresh the updates list after completion
       await checkForUpdates();
       await loadHistory();
     } catch (error) {
@@ -96,6 +166,11 @@ export default function UpdatesView() {
         type: 'error',
         message: 'Failed to execute updates',
       });
+      setUpdateProgress((prev) => ({
+        ...prev,
+        status: 'error',
+        logs: [...prev.logs, { message: `Error: ${error.message}`, status: 'failed' }],
+      }));
     } finally {
       setIsUpdating(false);
     }
@@ -225,31 +300,28 @@ export default function UpdatesView() {
     },
     {
       key: 'repository',
-      label: 'Repository',
+      label: 'Image',
       sortable: true,
-    },
-    {
-      key: 'currentTag',
-      label: 'Current Tag',
-      sortable: true,
-    },
-    {
-      key: 'currentDigest',
-      label: 'Current',
-      sortable: false,
-      render: (digest) => <span className="font-mono text-xs">{digest}</span>,
-    },
-    {
-      key: 'latestDigest',
-      label: 'Latest',
-      sortable: false,
-      render: (digest) => <span className="font-mono text-xs">{digest}</span>,
+      render: (repository, update) => (
+        <div>
+          <div className="text-white font-medium">{repository}</div>
+          <div className="text-xs text-slate-400">:{update.currentTag}</div>
+        </div>
+      ),
     },
     {
       key: 'size',
       label: 'Size',
       sortable: true,
       render: (size) => formatBytes(size),
+    },
+    {
+      key: 'hasUpdate',
+      label: 'Status',
+      sortable: false,
+      render: () => (
+        <Badge variant="warning">Update Available</Badge>
+      ),
     },
   ];
 
@@ -574,6 +646,98 @@ export default function UpdatesView() {
               {editingSchedule ? 'Update' : 'Create'} Schedule
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Update Progress Modal */}
+      <Modal
+        isOpen={showProgressModal}
+        onClose={() => {
+          if (updateProgress.status === 'complete' || updateProgress.status === 'error') {
+            setShowProgressModal(false);
+            setUpdateProgress({
+              current: 0,
+              total: 0,
+              currentImage: '',
+              status: '',
+              logs: [],
+            });
+          }
+        }}
+        title="Updating Images"
+        size="lg"
+      >
+        <div className="space-y-4">
+          {/* Progress bar */}
+          <div>
+            <div className="flex justify-between text-sm text-slate-300 mb-2">
+              <span>Progress</span>
+              <span>{updateProgress.current} / {updateProgress.total}</span>
+            </div>
+            <div className="w-full bg-glass-light rounded-full h-3">
+              <div
+                className={`h-3 rounded-full transition-all duration-300 ${
+                  updateProgress.status === 'error' ? 'bg-danger' :
+                  updateProgress.status === 'complete' ? 'bg-success' : 'bg-primary'
+                }`}
+                style={{ width: `${updateProgress.total > 0 ? (updateProgress.current / updateProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Current image */}
+          {updateProgress.currentImage && updateProgress.status !== 'complete' && (
+            <div className="flex items-center space-x-2 text-slate-300">
+              <LoadingSpinner size="sm" />
+              <span className="text-sm">Pulling {updateProgress.currentImage}...</span>
+            </div>
+          )}
+
+          {/* Log output */}
+          <div className="bg-glass-darker rounded-lg p-3 max-h-64 overflow-y-auto">
+            {updateProgress.logs.length === 0 ? (
+              <div className="text-slate-400 text-sm">Starting updates...</div>
+            ) : (
+              <div className="space-y-1">
+                {updateProgress.logs.map((log, index) => (
+                  <div
+                    key={index}
+                    className={`text-sm font-mono ${
+                      log.status === 'completed' ? 'text-success' :
+                      log.status === 'failed' ? 'text-danger' :
+                      log.status === 'complete' ? 'text-primary font-semibold' :
+                      'text-slate-300'
+                    }`}
+                  >
+                    {log.status === 'completed' && '✓ '}
+                    {log.status === 'failed' && '✗ '}
+                    {log.message}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Close button - only show when complete or error */}
+          {(updateProgress.status === 'complete' || updateProgress.status === 'error') && (
+            <div className="flex justify-end pt-2">
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setShowProgressModal(false);
+                  setUpdateProgress({
+                    current: 0,
+                    total: 0,
+                    currentImage: '',
+                    status: '',
+                    logs: [],
+                  });
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          )}
         </div>
       </Modal>
     </div>
