@@ -374,18 +374,24 @@ class DockerService {
 
   /**
    * Prune unused images
+   * @param {Object} options - Prune options
+   * @param {boolean} options.all - Remove all unused images, not just dangling
    * @returns {Promise<Object>} Prune result
    */
-  async pruneImages() {
+  async pruneImages(options = {}) {
     try {
-      const result = await this.docker.pruneImages();
+      // By default, prune all unused images (not just dangling)
+      // This is equivalent to `docker image prune -a`
+      const filters = options.all !== false ? { dangling: ['false'] } : {};
+
+      const result = await this.docker.pruneImages({ filters });
       logger.info('Unused images pruned', {
         imagesDeleted: result.ImagesDeleted?.length || 0,
         spaceReclaimed: result.SpaceReclaimed || 0,
       });
       return {
-        imagesDeleted: result.ImagesDeleted || [],
-        spaceReclaimed: result.SpaceReclaimed || 0,
+        ImagesDeleted: result.ImagesDeleted || [],
+        SpaceReclaimed: result.SpaceReclaimed || 0,
       };
     } catch (error) {
       logger.error('Failed to prune images:', error);

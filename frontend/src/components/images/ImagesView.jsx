@@ -88,18 +88,20 @@ export default function ImagesView() {
       const result = await imagesAPI.prune();
       const pruneData = result.data;
 
-      // Show detailed result
-      if (pruneData?.ImagesDeleted?.length > 0) {
-        const deletedCount = pruneData.ImagesDeleted.filter(img => img.Deleted).length;
-        const reclaimedSpace = pruneData.SpaceReclaimed || 0;
+      // Show detailed result (handle both response formats)
+      const imagesDeleted = pruneData?.ImagesDeleted || pruneData?.imagesDeleted || [];
+      const spaceReclaimed = pruneData?.SpaceReclaimed || pruneData?.spaceReclaimed || 0;
+
+      if (imagesDeleted.length > 0) {
+        const deletedCount = imagesDeleted.filter(img => img.Deleted || img.Untagged).length || imagesDeleted.length;
         addNotification({
           type: 'success',
-          message: `Pruned ${deletedCount} image(s), reclaimed ${formatBytes(reclaimedSpace)}`,
+          message: `Pruned ${deletedCount} image(s), reclaimed ${formatBytes(spaceReclaimed)}`,
         });
       } else {
         addNotification({
           type: 'info',
-          message: 'No unused images to prune',
+          message: 'No unused images to prune (images may still be referenced by stopped containers)',
         });
       }
 
