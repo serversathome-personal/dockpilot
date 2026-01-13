@@ -88,21 +88,23 @@ router.post('/execute/stream', async (req, res) => {
 
   for (const image of images) {
     const imageTag = `${image.repository}:${image.currentTag}`;
+    const isContainerUpdate = image.updateType === 'container';
 
     sendEvent('progress', {
       current: completed + 1,
       total,
       image: imageTag,
-      status: 'pulling',
-      message: `Pulling ${imageTag}...`,
+      status: isContainerUpdate ? 'recreating' : 'pulling',
+      message: isContainerUpdate
+        ? `Recreating ${image.containerName || imageTag}...`
+        : `Pulling ${imageTag}...`,
     });
 
     try {
-      // Use streaming pull with progress callback
+      // Pass full image object to handle both registry and container updates
       const result = await updateService.executeUpdateWithProgress(
-        image.repository,
-        image.currentTag,
-        { restartContainers },
+        image,
+        { restartContainers: true }, // Always recreate containers after update
         (progressData) => {
           sendEvent('pull-progress', {
             current: completed + 1,
@@ -119,7 +121,9 @@ router.post('/execute/stream', async (req, res) => {
         total,
         image: imageTag,
         status: 'completed',
-        message: `Updated ${imageTag}`,
+        message: isContainerUpdate
+          ? `Recreated ${image.containerName || imageTag}`
+          : `Updated ${imageTag}`,
       });
     } catch (error) {
       results.push({

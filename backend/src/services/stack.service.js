@@ -504,6 +504,35 @@ class StackService {
   }
 
   /**
+   * Recreate containers in a stack (uses docker compose up -d which recreates containers with updated images)
+   * @param {string} stackName - Stack name
+   * @param {string} serviceName - Optional specific service to recreate
+   * @returns {Promise<Object>} Command result
+   */
+  async recreateStack(stackName, serviceName = null) {
+    try {
+      const stackDir = path.join(this.stacksDir, stackName);
+
+      if (!(await fs.pathExists(stackDir))) {
+        throw new Error('Stack not found');
+      }
+
+      // Use 'up -d' which will recreate containers if their image has changed
+      // Add --force-recreate to ensure containers are recreated even if config hasn't changed
+      const command = serviceName
+        ? `up -d --force-recreate ${serviceName}`
+        : 'up -d --force-recreate';
+
+      const result = await this.executeComposeCommand(stackDir, command);
+      logger.info(`Recreated stack ${stackName}${serviceName ? ` (service: ${serviceName})` : ''}`);
+      return result;
+    } catch (error) {
+      logger.error(`Failed to recreate stack ${stackName}:`, error);
+      throw new Error(`Failed to recreate stack ${stackName}: ${error.message}`);
+    }
+  }
+
+  /**
    * Create a new stack
    * @param {string} stackName - Stack name
    * @param {string} composeContent - Docker Compose content

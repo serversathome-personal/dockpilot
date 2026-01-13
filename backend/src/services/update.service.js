@@ -701,63 +701,131 @@ class UpdateService {
   }
 
   /**
-   * Execute update for a specific image
-   * @param {string} repository - Image repository
-   * @param {string} tag - Image tag
+   * Execute update for a specific image (non-streaming version)
+   * @param {Object} update - Update object with repository, tag, updateType, containerId, containerName
    * @param {Object} options - Update options
    * @returns {Promise<Object>} Update result
    */
-  async executeUpdate(repository, tag, options = {}) {
+  async executeUpdate(update, options = {}) {
+    const { repository, currentTag: tag, updateType, containerId, containerName } = update;
     const imageTag = `${repository}:${tag}`;
     const updateRecord = {
       image: imageTag,
       timestamp: new Date().toISOString(),
       status: 'pending',
       restartedContainers: [],
+      updateType,
     };
 
     try {
-      logger.info(`Starting update for ${imageTag}`);
+      logger.info(`Starting update for ${imageTag} (type: ${updateType || 'registry'})`);
 
-      // Get containers using this image
-      const containers = await dockerService.listContainers({ all: true });
-      const affectedContainers = containers.filter(c =>
-        c.image === imageTag || c.image === repository
-      );
+      // For registry updates, pull the new image first
+      if (updateType !== 'container') {
+        logger.info(`Pulling latest ${imageTag}`);
+        await execAsync(`docker pull ${imageTag}`, { timeout: 300000 }); // 5 min timeout for pull
+        updateRecord.status = 'pulled';
+      }
 
-      // Pull latest image
-      logger.info(`Pulling latest ${imageTag}`);
-      await execAsync(`docker pull ${imageTag}`);
+      // Find containers to recreate
+      let containersToRecreate = [];
 
-      updateRecord.status = 'pulled';
+      if (updateType === 'container' && containerId) {
+        // For container updates, we have the specific container
+        const allContainers = await dockerService.listContainers({ all: true });
+        const targetContainer = allContainers.find(c => c.id === containerId || c.name === containerName);
+        if (targetContainer) {
+          containersToRecreate = [targetContainer];
+        }
+      } else {
+        // For registry updates, find all containers using this image
+        const containers = await dockerService.listContainers({ all: true });
+        containersToRecreate = containers.filter(c =>
+          c.image === imageTag || c.image === repository
+        );
 
-      // Restart affected containers if requested
-      if (options.restartContainers && affectedContainers.length > 0) {
-        logger.info(`Restarting ${affectedContainers.length} containers`);
+        // Also find containers with sha256: references
+        for (const container of containers) {
+          if (container.image?.startsWith('sha256:') && !containersToRecreate.includes(container)) {
+            try {
+              const { stdout } = await execAsync(
+                `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
+                { timeout: 5000 }
+              );
+              const configImage = stdout.trim();
+              const normalizedConfigImage = configImage.includes(':') ? configImage : `${configImage}:latest`;
+              if (normalizedConfigImage === imageTag) {
+                containersToRecreate.push(container);
+              }
+            } catch (e) {
+              // Skip containers we can't inspect
+            }
+          }
+        }
+      }
 
-        for (const container of affectedContainers) {
+      // Recreate affected containers
+      if (containersToRecreate.length > 0) {
+        logger.info(`Recreating ${containersToRecreate.length} containers`);
+
+        // Group containers by stack
+        const stacksToRecreate = new Map();
+        const standaloneContainers = [];
+
+        for (const container of containersToRecreate) {
+          const stackName = container.labels?.['com.docker.compose.project'];
+          const serviceName = container.labels?.['com.docker.compose.service'];
+
+          if (stackName) {
+            if (!stacksToRecreate.has(stackName)) {
+              stacksToRecreate.set(stackName, []);
+            }
+            stacksToRecreate.get(stackName).push({ container, serviceName });
+          } else {
+            standaloneContainers.push(container);
+          }
+        }
+
+        // Recreate stack containers
+        for (const [stackName, services] of stacksToRecreate) {
           try {
-            // Check if container is part of a stack
-            const stackName = container.labels['com.docker.compose.project'];
+            if (services.length === 1) {
+              await stackService.recreateStack(stackName, services[0].serviceName);
+            } else {
+              await stackService.recreateStack(stackName);
+            }
 
-            if (stackName) {
-              // Restart the entire stack
-              await stackService.restartStack(stackName);
+            for (const { container } of services) {
               updateRecord.restartedContainers.push({
                 id: container.id,
                 name: container.name,
                 stack: stackName,
                 type: 'stack',
               });
-            } else {
-              // Restart individual container
-              await dockerService.restartContainer(container.id);
+            }
+          } catch (error) {
+            logger.error(`Failed to recreate stack ${stackName}:`, error);
+            for (const { container } of services) {
               updateRecord.restartedContainers.push({
                 id: container.id,
                 name: container.name,
-                type: 'container',
+                stack: stackName,
+                error: error.message,
               });
             }
+          }
+        }
+
+        // Handle standalone containers
+        for (const container of standaloneContainers) {
+          try {
+            logger.warn(`Container ${container.name} is not part of a compose stack. Restarting instead of recreating.`);
+            await dockerService.restartContainer(container.id);
+            updateRecord.restartedContainers.push({
+              id: container.id,
+              name: container.name,
+              type: 'container',
+            });
           } catch (error) {
             logger.error(`Failed to restart container ${container.name}:`, error);
             updateRecord.restartedContainers.push({
@@ -770,7 +838,7 @@ class UpdateService {
       }
 
       updateRecord.status = 'completed';
-      updateRecord.affectedContainers = affectedContainers.length;
+      updateRecord.affectedContainers = containersToRecreate.length;
 
       // Add to history
       this.updateHistory.unshift(updateRecord);
@@ -779,7 +847,7 @@ class UpdateService {
       }
 
       // Send notification
-      const containerNames = affectedContainers.map(c => c.name);
+      const containerNames = containersToRecreate.map(c => c.name);
       await notificationService.notifyImageUpdated(imageTag, containerNames);
 
       logger.info(`Update completed for ${imageTag}`);
@@ -799,59 +867,143 @@ class UpdateService {
 
   /**
    * Execute update with streaming progress
-   * @param {string} repository - Image repository
-   * @param {string} tag - Image tag
+   * @param {Object} update - Update object with repository, tag, updateType, containerId, containerName
    * @param {Object} options - Update options
    * @param {Function} onProgress - Progress callback
    * @returns {Promise<Object>} Update result
    */
-  async executeUpdateWithProgress(repository, tag, options = {}, onProgress = () => {}) {
+  async executeUpdateWithProgress(update, options = {}, onProgress = () => {}) {
+    const { repository, currentTag: tag, updateType, containerId, containerName } = update;
     const imageTag = `${repository}:${tag}`;
     const updateRecord = {
       image: imageTag,
       timestamp: new Date().toISOString(),
       status: 'pending',
       restartedContainers: [],
+      updateType,
     };
 
     try {
-      logger.info(`Starting update with progress for ${imageTag}`);
+      logger.info(`Starting update for ${imageTag} (type: ${updateType || 'registry'})`);
 
-      // Get containers using this image
-      const containers = await dockerService.listContainers({ all: true });
-      const affectedContainers = containers.filter(c =>
-        c.image === imageTag || c.image === repository
-      );
+      // For registry updates, pull the new image first
+      if (updateType !== 'container') {
+        logger.info(`Pulling latest ${imageTag}`);
+        await this.pullImageWithProgress(imageTag, onProgress);
+        updateRecord.status = 'pulled';
+      } else {
+        // Container update - image already pulled, just need to recreate
+        onProgress({ status: 'ready', message: 'Image already up to date, recreating container...' });
+      }
 
-      // Pull with progress streaming
-      await this.pullImageWithProgress(imageTag, onProgress);
+      // Find containers to recreate
+      let containersToRecreate = [];
 
-      updateRecord.status = 'pulled';
+      if (updateType === 'container' && containerId) {
+        // For container updates, we have the specific container
+        const allContainers = await dockerService.listContainers({ all: true });
+        const targetContainer = allContainers.find(c => c.id === containerId || c.name === containerName);
+        if (targetContainer) {
+          containersToRecreate = [targetContainer];
+        }
+      } else {
+        // For registry updates, find all containers using this image
+        const containers = await dockerService.listContainers({ all: true });
+        containersToRecreate = containers.filter(c => {
+          // Match by exact image tag
+          if (c.image === imageTag || c.image === repository) return true;
+          // Also check Config.Image for containers showing sha256: references
+          return false;
+        });
 
-      // Restart affected containers if requested
-      if (options.restartContainers && affectedContainers.length > 0) {
-        onProgress({ status: 'restarting', message: `Restarting ${affectedContainers.length} container(s)...` });
+        // Also find containers with sha256: references by checking their Config.Image
+        for (const container of containers) {
+          if (container.image?.startsWith('sha256:')) {
+            try {
+              const { stdout } = await execAsync(
+                `docker inspect ${container.id} --format '{{.Config.Image}}' 2>/dev/null`,
+                { timeout: 5000 }
+              );
+              const configImage = stdout.trim();
+              const normalizedConfigImage = configImage.includes(':') ? configImage : `${configImage}:latest`;
+              if (normalizedConfigImage === imageTag) {
+                containersToRecreate.push(container);
+              }
+            } catch (e) {
+              // Skip containers we can't inspect
+            }
+          }
+        }
+      }
 
-        for (const container of affectedContainers) {
+      // Recreate affected containers
+      if (containersToRecreate.length > 0) {
+        onProgress({ status: 'recreating', message: `Recreating ${containersToRecreate.length} container(s)...` });
+
+        // Group containers by stack to avoid recreating the same stack multiple times
+        const stacksToRecreate = new Map();
+        const standaloneContainers = [];
+
+        for (const container of containersToRecreate) {
+          const stackName = container.labels?.['com.docker.compose.project'];
+          const serviceName = container.labels?.['com.docker.compose.service'];
+
+          if (stackName) {
+            if (!stacksToRecreate.has(stackName)) {
+              stacksToRecreate.set(stackName, []);
+            }
+            stacksToRecreate.get(stackName).push({ container, serviceName });
+          } else {
+            standaloneContainers.push(container);
+          }
+        }
+
+        // Recreate stack containers
+        for (const [stackName, services] of stacksToRecreate) {
           try {
-            const stackName = container.labels['com.docker.compose.project'];
+            // If only one service in the stack needs updating, recreate just that service
+            // Otherwise recreate the whole stack
+            if (services.length === 1) {
+              await stackService.recreateStack(stackName, services[0].serviceName);
+            } else {
+              await stackService.recreateStack(stackName);
+            }
 
-            if (stackName) {
-              await stackService.restartStack(stackName);
+            for (const { container } of services) {
               updateRecord.restartedContainers.push({
                 id: container.id,
                 name: container.name,
                 stack: stackName,
                 type: 'stack',
               });
-            } else {
-              await dockerService.restartContainer(container.id);
+            }
+            logger.info(`Recreated stack ${stackName}`);
+          } catch (error) {
+            logger.error(`Failed to recreate stack ${stackName}:`, error);
+            for (const { container } of services) {
               updateRecord.restartedContainers.push({
                 id: container.id,
                 name: container.name,
-                type: 'container',
+                stack: stackName,
+                error: error.message,
               });
             }
+          }
+        }
+
+        // Handle standalone containers (not in a compose stack)
+        for (const container of standaloneContainers) {
+          try {
+            // For standalone containers, we need to stop, remove, and recreate
+            // This is complex - for now, just restart and warn
+            logger.warn(`Container ${container.name} is not part of a compose stack. Restarting instead of recreating.`);
+            await dockerService.restartContainer(container.id);
+            updateRecord.restartedContainers.push({
+              id: container.id,
+              name: container.name,
+              type: 'container',
+              warning: 'Restarted only - manual recreation may be needed for non-compose containers',
+            });
           } catch (error) {
             logger.error(`Failed to restart container ${container.name}:`, error);
             updateRecord.restartedContainers.push({
@@ -864,7 +1016,7 @@ class UpdateService {
       }
 
       updateRecord.status = 'completed';
-      updateRecord.affectedContainers = affectedContainers.length;
+      updateRecord.affectedContainers = containersToRecreate.length;
 
       this.updateHistory.unshift(updateRecord);
       if (this.updateHistory.length > 100) {
@@ -872,7 +1024,7 @@ class UpdateService {
       }
 
       // Send notification
-      const containerNames = affectedContainers.map(c => c.name);
+      const containerNames = containersToRecreate.map(c => c.name);
       await notificationService.notifyImageUpdated(imageTag, containerNames);
 
       return updateRecord;
@@ -947,7 +1099,8 @@ class UpdateService {
 
     for (const image of images) {
       try {
-        const result = await this.executeUpdate(image.repository, image.currentTag, options);
+        // Pass full image object to handle both registry and container updates
+        const result = await this.executeUpdate(image, options);
         results.push(result);
       } catch (error) {
         results.push({
