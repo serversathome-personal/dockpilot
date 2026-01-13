@@ -91,33 +91,33 @@ class UpdateService {
           // Check if newer version exists and get additional info
           const remoteInfo = await this.getRemoteImageInfo(repository, currentTag || 'latest');
 
-          // Extract just the sha256:xxx part from RepoDigests (format: repo@sha256:xxx)
-          let currentDigest = image.id;
-          if (image.digests && image.digests.length > 0) {
-            const digestPart = image.digests[0].split('@')[1];
-            if (digestPart) {
-              currentDigest = digestPart;
-            }
-          }
+          // Use RepoDigests for comparison (same as Watchtower)
+          const localDigests = image.digests || [];
 
           // Debug logging for digest comparison
           if (!remoteInfo || !remoteInfo.digest) {
             logger.debug(`${repository}:${currentTag} - No remote digest found`);
-          } else if (remoteInfo.digest === currentDigest) {
-            logger.debug(`${repository}:${currentTag} - Up to date (digest: ${currentDigest?.substring(0, 19)})`);
           } else {
-            logger.debug(`${repository}:${currentTag} - Update available (local: ${currentDigest?.substring(0, 19)}, remote: ${remoteInfo.digest?.substring(0, 19)})`);
+            const matches = this.digestsMatch(localDigests, remoteInfo.digest);
+            if (matches) {
+              logger.debug(`${repository}:${currentTag} - Up to date`);
+            } else {
+              const localDigest = localDigests[0]?.split('@')[1] || image.id;
+              logger.debug(`${repository}:${currentTag} - Update available (local: ${this.normalizeDigest(localDigest)?.substring(0, 12)}, remote: ${this.normalizeDigest(remoteInfo.digest)?.substring(0, 12)})`);
+            }
           }
 
-          if (remoteInfo && remoteInfo.digest && remoteInfo.digest !== currentDigest) {
+          // Check if digests match - if not, update is available
+          if (remoteInfo && remoteInfo.digest && !this.digestsMatch(localDigests, remoteInfo.digest)) {
             // Get local image details for version/created info
             const localInfo = await this.getLocalImageInfo(`${repository}:${currentTag || 'latest'}`);
+            const localDigest = localDigests[0]?.split('@')[1] || image.id;
 
             return {
               repository,
               currentTag: currentTag || 'latest',
-              currentDigest: currentDigest.substring(0, 12),
-              latestDigest: remoteInfo.digest.substring(0, 12),
+              currentDigest: this.normalizeDigest(localDigest).substring(0, 12),
+              latestDigest: this.normalizeDigest(remoteInfo.digest).substring(0, 12),
               hasUpdate: true,
               size: image.size,
               // Version info
@@ -175,96 +175,178 @@ class UpdateService {
   }
 
   /**
+   * Normalize digest by stripping sha256: prefix for comparison
+   * @param {string} digest - Digest string
+   * @returns {string} Normalized digest (hash only)
+   */
+  normalizeDigest(digest) {
+    if (!digest) return '';
+    return digest.replace(/^sha256:/i, '').trim();
+  }
+
+  /**
+   * Check if local digests match remote digest
+   * @param {Array} localDigests - Array of local RepoDigests (format: repo@sha256:xxx)
+   * @param {string} remoteDigest - Remote digest (format: sha256:xxx)
+   * @returns {boolean} True if any local digest matches
+   */
+  digestsMatch(localDigests, remoteDigest) {
+    if (!localDigests || !remoteDigest) return false;
+
+    const normalizedRemote = this.normalizeDigest(remoteDigest);
+
+    for (const localDigest of localDigests) {
+      // Split digest into repo and hash parts (e.g., "repo@sha256:abc")
+      const parts = localDigest.split('@');
+      if (parts.length < 2) continue;
+
+      const normalizedLocal = this.normalizeDigest(parts[1]);
+      if (normalizedLocal === normalizedRemote) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Get registry info for a repository
+   * @param {string} repository - Image repository
+   * @returns {Object} Registry configuration
+   */
+  getRegistryInfo(repository) {
+    let registryUrl = 'https://registry-1.docker.io';
+    let authUrl = 'https://auth.docker.io/token';
+    let imagePath = repository;
+    let authService = 'registry.docker.io';
+    let originalRegistry = null;
+
+    // Handle different registries
+    if (repository.includes('/') && repository.split('/')[0].includes('.')) {
+      const parts = repository.split('/');
+      const registry = parts[0];
+      imagePath = parts.slice(1).join('/');
+      originalRegistry = registry;
+
+      if (registry === 'ghcr.io') {
+        registryUrl = 'https://ghcr.io';
+        authUrl = 'https://ghcr.io/token';
+        authService = 'ghcr.io';
+      } else if (registry === 'lscr.io') {
+        // lscr.io redirects to ghcr.io - images are at ghcr.io/linuxserver/...
+        registryUrl = 'https://ghcr.io';
+        authUrl = 'https://ghcr.io/token';
+        authService = 'ghcr.io';
+        // Keep original imagePath (linuxserver/emby) as that's where it's hosted on ghcr
+      } else if (registry === 'gcr.io') {
+        registryUrl = 'https://gcr.io';
+        authUrl = null;
+      } else if (registry === 'quay.io') {
+        registryUrl = 'https://quay.io';
+        authUrl = 'https://quay.io/v2/auth';
+        authService = 'quay.io';
+      } else {
+        registryUrl = `https://${registry}`;
+        authUrl = `https://${registry}/token`;
+        authService = registry;
+      }
+    } else if (!repository.includes('/')) {
+      // Official Docker Hub image (e.g., nginx, ubuntu)
+      imagePath = `library/${repository}`;
+    }
+
+    return { registryUrl, authUrl, imagePath, authService, originalRegistry };
+  }
+
+  /**
+   * Get auth token for registry
+   * @param {Object} registryInfo - Registry configuration
+   * @returns {Promise<string>} Auth token or empty string
+   */
+  async getAuthToken(registryInfo) {
+    const { authUrl, imagePath, authService } = registryInfo;
+
+    if (!authUrl) return '';
+
+    try {
+      let authCurlHeader = '';
+      if (authService === 'registry.docker.io') {
+        const hubAuth = getDockerHubAuth();
+        if (hubAuth) {
+          authCurlHeader = `-H "Authorization: Basic ${hubAuth}"`;
+        }
+      }
+
+      const { stdout } = await execAsync(
+        `curl -s ${authCurlHeader} "${authUrl}?service=${authService}&scope=repository:${imagePath}:pull" 2>/dev/null`,
+        { timeout: 10000 }
+      );
+
+      const data = JSON.parse(stdout);
+      return data.token || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  /**
    * Get remote image info from registry using registry API
+   * Uses same approach as Watchtower: HEAD request for Docker-Content-Digest
    * @param {string} repository - Image repository
    * @param {string} tag - Image tag
    * @returns {Promise<Object>} Remote image info
    */
   async getRemoteImageInfo(repository, tag) {
     try {
-      // Determine registry and image path
-      let registryUrl = 'https://registry-1.docker.io';
-      let authUrl = 'https://auth.docker.io/token';
-      let imagePath = repository;
-      let authService = 'registry.docker.io';
+      const registryInfo = this.getRegistryInfo(repository);
+      const { registryUrl, imagePath } = registryInfo;
 
-      // Handle different registries
-      if (repository.includes('/') && repository.split('/')[0].includes('.')) {
-        // Custom registry (e.g., ghcr.io/user/image, lscr.io/linuxserver/image)
-        const parts = repository.split('/');
-        const registry = parts[0];
-        imagePath = parts.slice(1).join('/');
-
-        if (registry === 'ghcr.io') {
-          registryUrl = 'https://ghcr.io';
-          authUrl = 'https://ghcr.io/token';
-          authService = 'ghcr.io';
-        } else if (registry === 'lscr.io') {
-          // lscr.io is a frontend for ghcr.io/linuxserver
-          registryUrl = 'https://ghcr.io';
-          authUrl = 'https://ghcr.io/token';
-          authService = 'ghcr.io';
-        } else if (registry === 'gcr.io') {
-          registryUrl = 'https://gcr.io';
-          authUrl = null; // GCR uses different auth
-        } else {
-          // Generic registry
-          registryUrl = `https://${registry}`;
-          authUrl = `https://${registry}/token`;
-          authService = registry;
-        }
-      } else if (!repository.includes('/')) {
-        // Official Docker Hub image (e.g., nginx, ubuntu)
-        imagePath = `library/${repository}`;
-      }
-
-      // Get auth token (for Docker Hub and compatible registries)
-      let authToken = '';
-      if (authUrl) {
-        try {
-          // Check if we have Docker Hub credentials for authenticated requests
-          let authCurlHeader = '';
-          if (authService === 'registry.docker.io') {
-            const hubAuth = getDockerHubAuth();
-            if (hubAuth) {
-              authCurlHeader = `-H "Authorization: Basic ${hubAuth}"`;
-              logger.debug('Using Docker Hub credentials for authenticated pull');
-            }
-          }
-
-          const { stdout: tokenStdout } = await execAsync(
-            `curl -s ${authCurlHeader} "${authUrl}?service=${authService}&scope=repository:${imagePath}:pull" 2>/dev/null`,
-            { timeout: 10000 }
-          );
-          const tokenData = JSON.parse(tokenStdout);
-          if (tokenData.token) {
-            authToken = tokenData.token;
-          }
-          // Check for rate limit error
-          if (tokenData.errors?.some(e => e.code === 'TOOMANYREQUESTS')) {
-            logger.warn(`Docker Hub rate limit reached for ${repository}. Consider running 'docker login' to authenticate.`);
-          }
-        } catch (e) {
-          // Auth failed, try without token
-        }
-      }
-
+      // Get auth token
+      const authToken = await this.getAuthToken(registryInfo);
       const authHeader = authToken ? `-H "Authorization: Bearer ${authToken}"` : '';
 
-      // Get manifest digest using HEAD request with Docker-Content-Digest header
-      const acceptHeader = 'application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json';
-      const { stdout: digestStdout } = await execAsync(
-        `curl -sI ${authHeader} -H "Accept: ${acceptHeader}" "${registryUrl}/v2/${imagePath}/manifests/${tag}" 2>/dev/null | grep -i docker-content-digest | awk '{print $2}' | tr -d '\\r\\n'`,
+      // Accept headers matching Watchtower's approach
+      const acceptHeader = 'application/vnd.docker.distribution.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json';
+
+      // HEAD request to get Docker-Content-Digest header
+      const manifestUrl = `${registryUrl}/v2/${imagePath}/manifests/${tag}`;
+      const { stdout: headResponse } = await execAsync(
+        `curl -sI ${authHeader} -H "Accept: ${acceptHeader}" "${manifestUrl}" 2>/dev/null`,
         { timeout: 15000 }
       );
 
-      const digest = digestStdout.trim() || null;
-      if (!digest) {
-        // Fallback to docker manifest inspect if registry API failed
-        logger.debug(`No digest from registry for ${repository}:${tag}, using fallback`);
-        return await this.getRemoteImageInfoFallback(repository, tag);
+      // Extract Docker-Content-Digest header
+      let digest = null;
+      const lines = headResponse.split('\n');
+      for (const line of lines) {
+        if (line.toLowerCase().startsWith('docker-content-digest:')) {
+          digest = line.split(':').slice(1).join(':').trim();
+          break;
+        }
       }
-      logger.debug(`Registry digest for ${repository}:${tag}: ${digest.substring(0, 19)}`);
+
+      if (!digest) {
+        // Try GET request as fallback (some registries don't return digest in HEAD)
+        logger.debug(`No digest from HEAD for ${repository}:${tag}, trying GET`);
+        const { stdout: getResponse } = await execAsync(
+          `curl -s -D - ${authHeader} -H "Accept: ${acceptHeader}" "${manifestUrl}" 2>/dev/null | head -50`,
+          { timeout: 15000 }
+        );
+
+        for (const line of getResponse.split('\n')) {
+          if (line.toLowerCase().startsWith('docker-content-digest:')) {
+            digest = line.split(':').slice(1).join(':').trim();
+            break;
+          }
+        }
+      }
+
+      if (!digest) {
+        logger.debug(`No digest from registry for ${repository}:${tag}`);
+        return null;
+      }
+
+      logger.debug(`Remote digest for ${repository}:${tag}: ${digest.substring(0, 19)}`);
 
 
       // Try to get version info from remote image config
