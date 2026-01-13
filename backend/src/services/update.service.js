@@ -210,9 +210,14 @@ class UpdateService {
           // Get the image reference - might be a tag or just an ID
           let imageTag = container.image;
 
-          // If image is just an ID (no tag), look up the original image from container config
-          if (!imageTag || !imageTag.includes(':') || imageTag.match(/^[a-f0-9]{12,64}$/i)) {
-            logger.info(`Container ${container.name} has ID-only image: "${imageTag}", looking up Config.Image`);
+          // If image is a sha256: reference, ID-only, or missing tag, look up the original image
+          const needsConfigLookup = !imageTag ||
+            imageTag.startsWith('sha256:') ||
+            !imageTag.includes(':') ||
+            imageTag.match(/^[a-f0-9]{12,64}$/i);
+
+          if (needsConfigLookup) {
+            logger.info(`Container ${container.name} needs Config.Image lookup (image: "${imageTag?.substring(0, 20)}...")`);
 
             // Try to get original image from container's Config.Image
             const { stdout: configImage } = await execAsync(
