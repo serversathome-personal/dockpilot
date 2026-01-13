@@ -93,10 +93,18 @@ export default function ImagesView() {
       const spaceReclaimed = pruneData?.SpaceReclaimed || pruneData?.spaceReclaimed || 0;
 
       if (imagesDeleted.length > 0) {
-        const deletedCount = imagesDeleted.filter(img => img.Deleted || img.Untagged).length || imagesDeleted.length;
+        // Count actual images (Untagged entries), not layers (Deleted entries)
+        // Each image has one Untagged entry but multiple Deleted layer entries
+        const imageCount = imagesDeleted.filter(img => img.Untagged).length;
+        const layerCount = imagesDeleted.filter(img => img.Deleted).length;
+
+        const message = imageCount > 0
+          ? `Pruned ${imageCount} image(s) (${layerCount} layers), reclaimed ${formatBytes(spaceReclaimed)}`
+          : `Pruned ${layerCount} layer(s), reclaimed ${formatBytes(spaceReclaimed)}`;
+
         addNotification({
           type: 'success',
-          message: `Pruned ${deletedCount} image(s), reclaimed ${formatBytes(spaceReclaimed)}`,
+          message,
         });
       } else {
         addNotification({
