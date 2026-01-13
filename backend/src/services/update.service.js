@@ -324,6 +324,14 @@ class UpdateService {
                           labels['VERSION'] ||
                           null;
 
+                // If no version label, try to get from GitHub releases
+                if (!version) {
+                  const sourceUrl = labels['org.opencontainers.image.source'];
+                  if (sourceUrl && sourceUrl.includes('github.com')) {
+                    version = await this.getGitHubLatestRelease(sourceUrl);
+                  }
+                }
+
                 if (!version) {
                   logger.debug(`No version label found for ${repository}:${tag}`);
                 }
@@ -371,6 +379,40 @@ class UpdateService {
     } catch (error) {
       return null;
     }
+  }
+
+  /**
+   * Get latest release version from GitHub
+   * @param {string} sourceUrl - GitHub repository URL
+   * @returns {Promise<string|null>} Version string or null
+   */
+  async getGitHubLatestRelease(sourceUrl) {
+    try {
+      // Parse GitHub URL to get owner/repo
+      // Formats: https://github.com/owner/repo or github.com/owner/repo
+      const match = sourceUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+      if (!match) return null;
+
+      const [, owner, repo] = match;
+      const repoName = repo.replace(/\.git$/, ''); // Remove .git suffix if present
+
+      const { stdout } = await execAsync(
+        `curl -s "https://api.github.com/repos/${owner}/${repoName}/releases/latest" 2>/dev/null`,
+        { timeout: 5000 }
+      );
+
+      if (stdout.trim()) {
+        const release = JSON.parse(stdout);
+        if (release.tag_name) {
+          logger.debug(`Found GitHub release ${release.tag_name} for ${owner}/${repoName}`);
+          return release.tag_name;
+        }
+      }
+    } catch (e) {
+      // GitHub API failed, continue without version
+      logger.debug(`Failed to get GitHub release: ${e.message}`);
+    }
+    return null;
   }
 
   /**
