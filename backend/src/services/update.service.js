@@ -134,40 +134,80 @@ class UpdateService {
   }
 
   /**
-   * Get remote image info from registry
+   * Get remote image info from registry using registry API
    * @param {string} repository - Image repository
    * @param {string} tag - Image tag
    * @returns {Promise<Object>} Remote image info
    */
   async getRemoteImageInfo(repository, tag) {
     try {
-      // Get manifest - we need the manifest digest, not config digest
-      const { stdout: manifestStdout } = await execAsync(
-        `docker manifest inspect ${repository}:${tag} --insecure 2>/dev/null || echo ""`,
+      // Determine registry and image path
+      let registryUrl = 'https://registry-1.docker.io';
+      let authUrl = 'https://auth.docker.io/token';
+      let imagePath = repository;
+      let authService = 'registry.docker.io';
+
+      // Handle different registries
+      if (repository.includes('/') && repository.split('/')[0].includes('.')) {
+        // Custom registry (e.g., ghcr.io/user/image, lscr.io/linuxserver/image)
+        const parts = repository.split('/');
+        const registry = parts[0];
+        imagePath = parts.slice(1).join('/');
+
+        if (registry === 'ghcr.io') {
+          registryUrl = 'https://ghcr.io';
+          authUrl = 'https://ghcr.io/token';
+          authService = 'ghcr.io';
+        } else if (registry === 'lscr.io') {
+          // lscr.io is a frontend for ghcr.io/linuxserver
+          registryUrl = 'https://ghcr.io';
+          authUrl = 'https://ghcr.io/token';
+          authService = 'ghcr.io';
+        } else if (registry === 'gcr.io') {
+          registryUrl = 'https://gcr.io';
+          authUrl = null; // GCR uses different auth
+        } else {
+          // Generic registry
+          registryUrl = `https://${registry}`;
+          authUrl = `https://${registry}/token`;
+          authService = registry;
+        }
+      } else if (!repository.includes('/')) {
+        // Official Docker Hub image (e.g., nginx, ubuntu)
+        imagePath = `library/${repository}`;
+      }
+
+      // Get auth token (for Docker Hub and compatible registries)
+      let authHeader = '';
+      if (authUrl) {
+        try {
+          const { stdout: tokenStdout } = await execAsync(
+            `curl -s "${authUrl}?service=${authService}&scope=repository:${imagePath}:pull" 2>/dev/null`,
+            { timeout: 10000 }
+          );
+          const tokenData = JSON.parse(tokenStdout);
+          if (tokenData.token) {
+            authHeader = `-H "Authorization: Bearer ${tokenData.token}"`;
+          }
+        } catch (e) {
+          // Auth failed, try without token
+        }
+      }
+
+      // Get manifest digest using HEAD request with Docker-Content-Digest header
+      const acceptHeader = 'application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json';
+      const { stdout: digestStdout } = await execAsync(
+        `curl -sI ${authHeader} -H "Accept: ${acceptHeader}" "${registryUrl}/v2/${imagePath}/manifests/${tag}" 2>/dev/null | grep -i docker-content-digest | awk '{print $2}' | tr -d '\\r\\n'`,
         { timeout: 15000 }
       );
 
-      if (!manifestStdout.trim()) return null;
-
-      const manifest = JSON.parse(manifestStdout);
-
-      // For manifest lists (multi-arch), get the digest of the first matching manifest
-      // For single manifests, use the config digest as a proxy
-      let digest = null;
-
-      if (manifest.manifests && manifest.manifests.length > 0) {
-        // Multi-arch image - find digest for current platform or use first
-        const currentArch = process.arch === 'x64' ? 'amd64' : process.arch;
-        const matchingManifest = manifest.manifests.find(m =>
-          m.platform?.architecture === currentArch
-        ) || manifest.manifests[0];
-        digest = matchingManifest.digest;
-      } else if (manifest.config?.digest) {
-        // Single arch image - use config digest
-        digest = manifest.config.digest;
+      const digest = digestStdout.trim() || null;
+      if (!digest) {
+        // Fallback to docker manifest inspect if registry API failed
+        return await this.getRemoteImageInfoFallback(repository, tag);
       }
 
-      // Try to get more info using buildx imagetools
+      // Try to get version info using buildx imagetools
       let version = null;
       let created = null;
 
@@ -179,7 +219,6 @@ class UpdateService {
 
         if (toolsStdout.trim()) {
           const toolsInfo = JSON.parse(toolsStdout);
-          // Try to extract created time and version from config
           if (toolsInfo.created) {
             created = toolsInfo.created;
           }
@@ -194,6 +233,35 @@ class UpdateService {
       }
 
       return { digest, version, created };
+    } catch (error) {
+      logger.warn(`Failed to get remote info for ${repository}:${tag}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Fallback method using docker manifest inspect
+   */
+  async getRemoteImageInfoFallback(repository, tag) {
+    try {
+      const { stdout: manifestStdout } = await execAsync(
+        `docker manifest inspect ${repository}:${tag} --insecure 2>/dev/null || echo ""`,
+        { timeout: 15000 }
+      );
+
+      if (!manifestStdout.trim()) return null;
+
+      // Compute digest of the manifest JSON (this is what Docker uses for RepoDigest)
+      const { stdout: digestStdout } = await execAsync(
+        `echo '${manifestStdout.replace(/'/g, "\\'")}' | sha256sum | awk '{print "sha256:" $1}'`,
+        { timeout: 5000 }
+      );
+
+      return {
+        digest: digestStdout.trim() || null,
+        version: null,
+        created: null,
+      };
     } catch (error) {
       return null;
     }
