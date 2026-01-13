@@ -14,6 +14,9 @@ services:
       - ./stacks:/stacks
       # Optional: Persistent data directory
       - dockpilot-data:/data
+      # Optional: Mount Docker config for authenticated registry pulls
+      # This helps avoid Docker Hub rate limits when checking for updates
+      # - ~/.docker/config.json:/root/.docker/config.json:ro
     environment:
       - NODE_ENV=production
       - PORT=3000

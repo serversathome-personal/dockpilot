@@ -368,8 +368,8 @@ export default function UpdatesView() {
               Built {formatAge(update.newCreated)}
             </div>
           ) : (
-            <div className="text-success text-xs">
-              Newer build
+            <div className="text-success text-xs" title="Version label not available in image metadata">
+              Update available
               <span className="text-slate-500 ml-1">
                 ({update.latestDigest})
               </span>

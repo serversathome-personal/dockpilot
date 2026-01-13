@@ -1,4 +1,6 @@
 import cron from 'node-cron';
+import fs from 'fs';
+import path from 'path';
 import dockerService from './docker.service.js';
 import stackService from './stack.service.js';
 import notificationService from './notification.service.js';
@@ -8,6 +10,36 @@ import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+
+/**
+ * Get Docker Hub credentials from docker config
+ * @returns {Object|null} Base64 encoded auth or null
+ */
+function getDockerHubAuth() {
+  try {
+    // Check common docker config locations
+    const configPaths = [
+      '/root/.docker/config.json',
+      path.join(process.env.HOME || '/root', '.docker/config.json'),
+    ];
+
+    for (const configPath of configPaths) {
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        // Check for Docker Hub auth
+        const hubAuth = config.auths?.['https://index.docker.io/v1/']?.auth ||
+                        config.auths?.['registry-1.docker.io']?.auth ||
+                        config.auths?.['docker.io']?.auth;
+        if (hubAuth) {
+          return hubAuth;
+        }
+      }
+    }
+  } catch (e) {
+    // No credentials available
+  }
+  return null;
+}
 
 class UpdateService {
   constructor() {
@@ -181,13 +213,27 @@ class UpdateService {
       let authToken = '';
       if (authUrl) {
         try {
+          // Check if we have Docker Hub credentials for authenticated requests
+          let authCurlHeader = '';
+          if (authService === 'registry.docker.io') {
+            const hubAuth = getDockerHubAuth();
+            if (hubAuth) {
+              authCurlHeader = `-H "Authorization: Basic ${hubAuth}"`;
+              logger.debug('Using Docker Hub credentials for authenticated pull');
+            }
+          }
+
           const { stdout: tokenStdout } = await execAsync(
-            `curl -s "${authUrl}?service=${authService}&scope=repository:${imagePath}:pull" 2>/dev/null`,
+            `curl -s ${authCurlHeader} "${authUrl}?service=${authService}&scope=repository:${imagePath}:pull" 2>/dev/null`,
             { timeout: 10000 }
           );
           const tokenData = JSON.parse(tokenStdout);
           if (tokenData.token) {
             authToken = tokenData.token;
+          }
+          // Check for rate limit error
+          if (tokenData.errors?.some(e => e.code === 'TOOMANYREQUESTS')) {
+            logger.warn(`Docker Hub rate limit reached for ${repository}. Consider running 'docker login' to authenticate.`);
           }
         } catch (e) {
           // Auth failed, try without token
@@ -263,15 +309,28 @@ class UpdateService {
           );
 
           if (configStdout.trim()) {
-            const config = JSON.parse(configStdout);
-            created = config.created || null;
+            // Check for rate limit error
+            if (configStdout.includes('TOOMANYREQUESTS') || configStdout.includes('rate limit')) {
+              logger.warn(`Rate limit reached for ${repository}. Mount ~/.docker/config.json for authenticated pulls.`);
+            } else {
+              try {
+                const config = JSON.parse(configStdout);
+                created = config.created || null;
 
-            // Extract version from labels
-            const labels = config.config?.Labels || {};
-            version = labels['org.opencontainers.image.version'] ||
-                      labels['version'] ||
-                      labels['VERSION'] ||
-                      null;
+                // Extract version from labels
+                const labels = config.config?.Labels || {};
+                version = labels['org.opencontainers.image.version'] ||
+                          labels['version'] ||
+                          labels['VERSION'] ||
+                          null;
+
+                if (!version) {
+                  logger.debug(`No version label found for ${repository}:${tag}`);
+                }
+              } catch (parseErr) {
+                logger.debug(`Failed to parse config for ${repository}:${tag}`);
+              }
+            }
           }
         }
       } catch (e) {
