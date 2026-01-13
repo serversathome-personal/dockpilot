@@ -15,7 +15,8 @@ class LogsWebSocketHandler {
    * @param {Object} server - HTTP server instance
    */
   initialize(server) {
-    this.wss = new WebSocketServer({ server, path: '/ws/logs' });
+    // Use noServer mode for proper routing when multiple WebSocket handlers exist
+    this.wss = new WebSocketServer({ noServer: true });
 
     this.wss.on('connection', (ws, req) => {
       const clientId = this.generateClientId();
@@ -83,7 +84,19 @@ class LogsWebSocketHandler {
       });
     }, config.websocket.heartbeatInterval);
 
-    logger.info('WebSocket server initialized on /ws/logs');
+    logger.info('Logs WebSocket handler initialized');
+  }
+
+  /**
+   * Handle WebSocket upgrade for this handler
+   * @param {Object} request - HTTP request
+   * @param {Object} socket - Network socket
+   * @param {Buffer} head - First packet of upgraded stream
+   */
+  handleUpgrade(request, socket, head) {
+    this.wss.handleUpgrade(request, socket, head, (ws) => {
+      this.wss.emit('connection', ws, request);
+    });
   }
 
   /**

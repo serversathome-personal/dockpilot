@@ -78,9 +78,23 @@ if (config.nodeEnv === 'production') {
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Initialize WebSocket servers
+// Initialize WebSocket handlers (noServer mode)
 logsWebSocketHandler.initialize(server);
 shellWebSocketHandler.initialize(server);
+
+// Handle WebSocket upgrades and route to appropriate handler based on path
+server.on('upgrade', (request, socket, head) => {
+  const { pathname } = new URL(request.url, `http://${request.headers.host}`);
+
+  if (pathname === '/ws/logs') {
+    logsWebSocketHandler.handleUpgrade(request, socket, head);
+  } else if (pathname === '/ws/shell') {
+    shellWebSocketHandler.handleUpgrade(request, socket, head);
+  } else {
+    // Unknown WebSocket path - destroy the socket
+    socket.destroy();
+  }
+});
 
 // Start server
 const startServer = async () => {
@@ -135,8 +149,9 @@ const startServer = async () => {
 const gracefulShutdown = (signal) => {
   logger.info(`Received ${signal}, shutting down gracefully...`);
 
-  // Close WebSocket server
+  // Close WebSocket servers
   logsWebSocketHandler.close();
+  shellWebSocketHandler.close();
 
   // Close HTTP server
   server.close(() => {
