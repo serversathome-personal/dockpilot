@@ -271,13 +271,13 @@ export default function UpdatesView() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Updates</h1>
-          <p className="mt-2 text-slate-400">Manage automatic image updates</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-white">Updates</h1>
+          <p className="mt-1 lg:mt-2 text-sm lg:text-base text-slate-400">Manage automatic image updates</p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-2">
           {activeTab === 'available' && (
             <>
               <Button
@@ -286,8 +286,8 @@ export default function UpdatesView() {
                 isLoading={isChecking}
                 className="flex items-center"
               >
-                <ArrowPathIcon className="h-5 w-5 mr-2" />
-                Check for Updates
+                <ArrowPathIcon className="h-5 w-5 lg:mr-2" />
+                <span className="hidden sm:inline">Check for Updates</span>
               </Button>
               {selectedUpdates.length > 0 && (
                 <Button
@@ -295,7 +295,7 @@ export default function UpdatesView() {
                   onClick={executeUpdates}
                   isLoading={isUpdating}
                 >
-                  Update Selected ({selectedUpdates.length})
+                  <span className="hidden sm:inline">Update Selected</span> ({selectedUpdates.length})
                 </Button>
               )}
             </>
@@ -306,28 +306,29 @@ export default function UpdatesView() {
               onClick={() => setShowScheduleModal(true)}
               className="flex items-center"
             >
-              <PlusIcon className="h-5 w-5 mr-2" />
-              New Schedule
+              <PlusIcon className="h-5 w-5 lg:mr-2" />
+              <span className="hidden sm:inline">New Schedule</span>
             </Button>
           )}
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-glass-border">
-        <nav className="flex space-x-8">
+      <div className="border-b border-glass-border overflow-x-auto">
+        <nav className="flex space-x-4 lg:space-x-8">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              className={`flex items-center py-3 lg:py-4 px-1 border-b-2 font-medium text-xs lg:text-sm transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-primary text-primary'
                   : 'border-transparent text-slate-400 hover:text-white hover:border-slate-300'
               }`}
             >
-              <tab.icon className="h-5 w-5 mr-2" />
-              {tab.label}
+              <tab.icon className="h-4 w-4 lg:h-5 lg:w-5 mr-1 lg:mr-2" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
             </button>
           ))}
         </nav>

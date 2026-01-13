@@ -183,11 +183,11 @@ export default function EventLogView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Event Log</h1>
-          <p className="mt-2 text-slate-400">
+          <h1 className="text-2xl lg:text-3xl font-bold text-white">Event Log</h1>
+          <p className="mt-1 lg:mt-2 text-sm lg:text-base text-slate-400">
             Docker activity and events
             {isStreaming && (
               <Badge variant="success" className="ml-2">
@@ -196,34 +196,34 @@ export default function EventLogView() {
             )}
           </p>
         </div>
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-2">
           {isStreaming ? (
             <Button variant="warning" onClick={stopStreaming}>
-              <PauseIcon className="h-5 w-5 mr-2" />
-              Pause
+              <PauseIcon className="h-5 w-5 lg:mr-2" />
+              <span className="hidden sm:inline">Pause</span>
             </Button>
           ) : (
             <Button variant="success" onClick={startStreaming}>
-              <PlayIcon className="h-5 w-5 mr-2" />
-              Live Stream
+              <PlayIcon className="h-5 w-5 lg:mr-2" />
+              <span className="hidden sm:inline">Live Stream</span>
             </Button>
           )}
           <Button variant="secondary" onClick={loadEvents} disabled={isLoading}>
-            <ArrowPathIcon className="h-5 w-5 mr-2" />
-            Refresh
+            <ArrowPathIcon className="h-5 w-5 lg:mr-2" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-wrap items-center gap-2">
         <FunnelIcon className="h-5 w-5 text-slate-400" />
         <span className="text-sm text-slate-400">Filter:</span>
         {eventTypes.map((type) => (
           <button
             key={type}
             onClick={() => setFilter(type)}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+            className={`px-2 lg:px-3 py-1 text-xs lg:text-sm rounded-lg transition-colors ${
               filter === type
                 ? 'bg-primary text-white'
                 : 'bg-glass-dark text-slate-300 hover:bg-glass-light'
