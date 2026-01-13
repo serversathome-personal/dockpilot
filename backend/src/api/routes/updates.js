@@ -1,6 +1,7 @@
 import express from 'express';
 import { asyncHandler } from '../../middleware/error.middleware.js';
 import updateService from '../../services/update.service.js';
+import notificationService from '../../services/notification.service.js';
 import logger from '../../utils/logger.js';
 
 const router = express.Router();
@@ -13,6 +14,13 @@ router.get('/check', asyncHandler(async (req, res) => {
   logger.info('Checking for available updates');
 
   const updates = await updateService.checkForUpdates();
+
+  // Send notification if updates are available (trigger must be enabled in settings)
+  if (updates.length > 0) {
+    notificationService.notifyUpdatesAvailable(updates).catch(err => {
+      logger.warn('Failed to send updates available notification:', err.message);
+    });
+  }
 
   res.json({
     success: true,

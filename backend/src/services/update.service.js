@@ -100,6 +100,15 @@ class UpdateService {
             }
           }
 
+          // Debug logging for digest comparison
+          if (!remoteInfo || !remoteInfo.digest) {
+            logger.debug(`${repository}:${currentTag} - No remote digest found`);
+          } else if (remoteInfo.digest === currentDigest) {
+            logger.debug(`${repository}:${currentTag} - Up to date (digest: ${currentDigest?.substring(0, 19)})`);
+          } else {
+            logger.debug(`${repository}:${currentTag} - Update available (local: ${currentDigest?.substring(0, 19)}, remote: ${remoteInfo.digest?.substring(0, 19)})`);
+          }
+
           if (remoteInfo && remoteInfo.digest && remoteInfo.digest !== currentDigest) {
             // Get local image details for version/created info
             const localInfo = await this.getLocalImageInfo(`${repository}:${currentTag || 'latest'}`);
@@ -252,8 +261,11 @@ class UpdateService {
       const digest = digestStdout.trim() || null;
       if (!digest) {
         // Fallback to docker manifest inspect if registry API failed
+        logger.debug(`No digest from registry for ${repository}:${tag}, using fallback`);
         return await this.getRemoteImageInfoFallback(repository, tag);
       }
+      logger.debug(`Registry digest for ${repository}:${tag}: ${digest.substring(0, 19)}`);
+
 
       // Try to get version info from remote image config
       let version = null;
@@ -547,6 +559,10 @@ class UpdateService {
         this.updateHistory = this.updateHistory.slice(0, 100);
       }
 
+      // Send notification
+      const containerNames = affectedContainers.map(c => c.name);
+      await notificationService.notifyImageUpdated(imageTag, containerNames);
+
       logger.info(`Update completed for ${imageTag}`);
       return updateRecord;
     } catch (error) {
@@ -554,6 +570,10 @@ class UpdateService {
       updateRecord.status = 'failed';
       updateRecord.error = error.message;
       this.updateHistory.unshift(updateRecord);
+
+      // Send failure notification
+      await notificationService.notifyImageUpdateFailed(imageTag, error.message);
+
       throw error;
     }
   }
@@ -632,12 +652,20 @@ class UpdateService {
         this.updateHistory = this.updateHistory.slice(0, 100);
       }
 
+      // Send notification
+      const containerNames = affectedContainers.map(c => c.name);
+      await notificationService.notifyImageUpdated(imageTag, containerNames);
+
       return updateRecord;
     } catch (error) {
       logger.error(`Failed to update ${imageTag}:`, error);
       updateRecord.status = 'failed';
       updateRecord.error = error.message;
       this.updateHistory.unshift(updateRecord);
+
+      // Send failure notification
+      await notificationService.notifyImageUpdateFailed(imageTag, error.message);
+
       throw error;
     }
   }
