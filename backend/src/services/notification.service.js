@@ -354,9 +354,13 @@ class NotificationService {
 
         // Only notify for unexpected stops (non-zero exit codes or if we were tracking it)
         if (exitCode && exitCode !== '0') {
+          const body = `The container "${name}" stopped unexpectedly.\n\n` +
+            `Exit code: ${exitCode}\n\n` +
+            `This may indicate an error. Check the container logs for details.`;
+
           await this.send(
-            `Container Stopped Unexpectedly`,
-            `Container "${name}" has stopped with exit code ${exitCode}`,
+            `DockPilot: Container Stopped`,
+            body,
             'error',
             'containerStopped'
           );
@@ -365,9 +369,12 @@ class NotificationService {
         // Track that this container is now running
         this.containerStates.set(actor?.id, { name, startTime: Date.now() });
       } else if (action === 'health_status' && actor?.attributes?.health_status === 'unhealthy') {
+        const body = `The container "${name}" is reporting unhealthy status.\n\n` +
+          `The health check is failing. Check the container logs and configuration.`;
+
         await this.send(
-          `Container Health Check Failed`,
-          `Container "${name}" is now unhealthy`,
+          `DockPilot: Container Unhealthy`,
+          body,
           'warning',
           'containerHealthUnhealthy'
         );
@@ -376,12 +383,24 @@ class NotificationService {
   }
 
   /**
+   * Helper to format image name for display (extract readable name)
+   */
+  formatImageName(fullName) {
+    // lscr.io/linuxserver/emby -> emby
+    // ghcr.io/user/app -> app
+    // nginx:latest -> nginx
+    const parts = fullName.split('/');
+    const name = parts[parts.length - 1].split(':')[0];
+    return name;
+  }
+
+  /**
    * Notify that a stack has been started
    */
   async notifyStackStarted(stackName) {
     await this.send(
-      `Stack Started`,
-      `Stack "${stackName}" has been started successfully`,
+      `DockPilot: Stack Started`,
+      `The stack "${stackName}" is now running.`,
       'success',
       'stackStarted'
     );
@@ -392,8 +411,8 @@ class NotificationService {
    */
   async notifyStackStopped(stackName) {
     await this.send(
-      `Stack Stopped`,
-      `Stack "${stackName}" has been stopped`,
+      `DockPilot: Stack Stopped`,
+      `The stack "${stackName}" has been stopped.`,
       'info',
       'stackStopped'
     );
@@ -403,13 +422,16 @@ class NotificationService {
    * Notify that an image has been updated
    */
   async notifyImageUpdated(imageName, containerNames = []) {
-    const containers = containerNames.length > 0
-      ? `\nAffected containers: ${containerNames.join(', ')}`
-      : '';
+    const friendlyName = this.formatImageName(imageName);
+    let body = `Successfully updated "${friendlyName}"\n\nFull image: ${imageName}`;
+
+    if (containerNames.length > 0) {
+      body += `\n\nAffected containers:\n${containerNames.map(c => `  - ${c}`).join('\n')}`;
+    }
 
     await this.send(
-      `Image Updated`,
-      `Image "${imageName}" has been updated${containers}`,
+      `DockPilot: Image Updated`,
+      body,
       'success',
       'imageUpdated'
     );
@@ -419,11 +441,16 @@ class NotificationService {
    * Notify that an image update failed
    */
   async notifyImageUpdateFailed(imageName, error = '') {
-    const errorMsg = error ? `\nError: ${error}` : '';
+    const friendlyName = this.formatImageName(imageName);
+    let body = `Failed to update "${friendlyName}"\n\nFull image: ${imageName}`;
+
+    if (error) {
+      body += `\n\nError:\n${error}`;
+    }
 
     await this.send(
-      `Image Update Failed`,
-      `Failed to update image "${imageName}"${errorMsg}`,
+      `DockPilot: Image Update Failed`,
+      body,
       'error',
       'imageUpdateFailed'
     );
@@ -434,12 +461,26 @@ class NotificationService {
    */
   async notifyUpdatesAvailable(updates) {
     const count = updates.length;
-    const imageList = updates.slice(0, 5).map(u => u.repository).join(', ');
-    const moreText = count > 5 ? ` and ${count - 5} more` : '';
+    const displayUpdates = updates.slice(0, 10);
+    const remaining = count > 10 ? count - 10 : 0;
+
+    let body = `Found ${count} image${count === 1 ? '' : 's'} with available updates:\n\n`;
+
+    body += displayUpdates.map(u => {
+      const name = this.formatImageName(u.repository);
+      const versionInfo = u.currentVersion && u.newVersion
+        ? ` (${u.currentVersion} -> ${u.newVersion})`
+        : '';
+      return `  - ${name}${versionInfo}`;
+    }).join('\n');
+
+    if (remaining > 0) {
+      body += `\n  ... and ${remaining} more`;
+    }
 
     await this.send(
-      `Updates Available`,
-      `${count} image update(s) available: ${imageList}${moreText}`,
+      `DockPilot: Updates Available`,
+      body,
       'info',
       'imageUpdateAvailable'
     );
@@ -449,9 +490,14 @@ class NotificationService {
    * Notify that a DockPilot update is available
    */
   async notifyDockpilotUpdate(currentVersion, newVersion) {
+    const body = `A new version of DockPilot is available!\n\n` +
+      `Current version: ${currentVersion}\n` +
+      `New version: ${newVersion}\n\n` +
+      `Visit the DockPilot UI to update.`;
+
     await this.send(
-      `DockPilot Update Available`,
-      `A new version of DockPilot is available!\nCurrent: ${currentVersion}\nNew: ${newVersion}`,
+      `DockPilot: Update Available`,
+      body,
       'info',
       'dockpilotUpdateAvailable'
     );
