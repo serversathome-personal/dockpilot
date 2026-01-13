@@ -98,6 +98,17 @@ class UpdateService {
           if (!remoteInfo || !remoteInfo.digest) {
             logger.debug(`${repository}:${currentTag} - No remote digest found`);
           } else {
+            // Log raw values for first few images for debugging
+            if (repository.includes('n8n') || repository.includes('nginx') || repository.includes('emby')) {
+              logger.info(`DEBUG ${repository}:${currentTag}:`);
+              logger.info(`  Remote digest raw: "${remoteInfo.digest}"`);
+              logger.info(`  Local digests: ${JSON.stringify(localDigests)}`);
+              if (localDigests[0]) {
+                const parts = localDigests[0].split('@');
+                logger.info(`  Local digest extracted: "${parts[1] || 'none'}"`);
+              }
+            }
+
             const matches = this.digestsMatch(localDigests, remoteInfo.digest);
             if (matches) {
               logger.debug(`${repository}:${currentTag} - Up to date`);
@@ -191,9 +202,14 @@ class UpdateService {
    * @returns {boolean} True if any local digest matches
    */
   digestsMatch(localDigests, remoteDigest) {
-    if (!localDigests || !remoteDigest) return false;
+    if (!localDigests || !remoteDigest) {
+      logger.debug(`digestsMatch: missing data - localDigests: ${localDigests?.length || 0}, remoteDigest: ${!!remoteDigest}`);
+      return false;
+    }
 
-    const normalizedRemote = this.normalizeDigest(remoteDigest);
+    // Clean and normalize remote digest (remove any whitespace/newlines)
+    const cleanedRemote = remoteDigest.replace(/[\r\n\s]/g, '');
+    const normalizedRemote = this.normalizeDigest(cleanedRemote);
 
     for (const localDigest of localDigests) {
       // Split digest into repo and hash parts (e.g., "repo@sha256:abc")
@@ -201,6 +217,12 @@ class UpdateService {
       if (parts.length < 2) continue;
 
       const normalizedLocal = this.normalizeDigest(parts[1]);
+
+      // Debug: log first comparison for troubleshooting
+      if (localDigests.indexOf(localDigest) === 0) {
+        logger.debug(`digestsMatch comparing: local="${normalizedLocal.substring(0, 16)}" vs remote="${normalizedRemote.substring(0, 16)}" (lengths: ${normalizedLocal.length} vs ${normalizedRemote.length})`);
+      }
+
       if (normalizedLocal === normalizedRemote) {
         return true;
       }
@@ -447,11 +469,11 @@ class UpdateService {
         logger.debug(`Failed to get remote config for ${repository}:${tag}:`, e.message);
       }
 
-      // Use platform-specific digest for multi-arch images, otherwise use the original
-      const finalDigest = platformDigest || digest;
-      logger.debug(`Final digest for ${repository}:${tag}: ${finalDigest.substring(0, 19)}`);
+      // Use the original digest from HEAD request (manifest list digest for multi-arch)
+      // Docker stores manifest list digest in RepoDigests, not platform-specific
+      logger.debug(`Final digest for ${repository}:${tag}: ${digest.substring(0, 19)}${platformDigest ? ' (multi-arch, platform: ' + platformDigest.substring(0, 19) + ')' : ''}`);
 
-      return { digest: finalDigest, version, created };
+      return { digest, version, created };
     } catch (error) {
       logger.warn(`Failed to get remote info for ${repository}:${tag}:`, error.message);
       return null;
