@@ -17,7 +17,7 @@ export default function ImagesView() {
   const [pullImageName, setPullImageName] = useState('');
   const [isPulling, setIsPulling] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showDangling, setShowDangling] = useState(false);
+  const [danglingFilter, setDanglingFilter] = useState('hide'); // 'hide', 'show', 'only'
   const [isPruning, setIsPruning] = useState(false);
 
   useEffect(() => {
@@ -222,12 +222,19 @@ export default function ImagesView() {
     },
   ];
 
-  // Filter images based on dangling toggle and search
+  // Filter images based on dangling filter and search
   const filteredImages = images.filter((img) => {
-    // Filter out dangling images unless toggle is on
-    if (!showDangling && img.repository === '<none>') {
+    const isDangling = img.repository === '<none>';
+
+    // Apply dangling filter
+    if (danglingFilter === 'hide' && isDangling) {
       return false;
     }
+    if (danglingFilter === 'only' && !isDangling) {
+      return false;
+    }
+    // 'show' includes all images
+
     // Apply search filter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -313,15 +320,15 @@ export default function ImagesView() {
           )}
         </div>
         {danglingCount > 0 && (
-          <label className="flex items-center space-x-2 text-sm text-slate-300 whitespace-nowrap cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showDangling}
-              onChange={(e) => setShowDangling(e.target.checked)}
-              className="w-4 h-4 text-primary bg-glass-light border-glass-border rounded focus:ring-primary"
-            />
-            <span>Show dangling ({danglingCount})</span>
-          </label>
+          <select
+            value={danglingFilter}
+            onChange={(e) => setDanglingFilter(e.target.value)}
+            className="glass-select text-sm py-2 px-3"
+          >
+            <option value="hide">Hide dangling</option>
+            <option value="show">Show all ({images.length})</option>
+            <option value="only">Only dangling ({danglingCount})</option>
+          </select>
         )}
       </div>
 

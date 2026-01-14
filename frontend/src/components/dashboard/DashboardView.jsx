@@ -188,64 +188,64 @@ export default function DashboardView() {
           <div className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* CPU Card - Compact */}
-            <Card className="p-3">
-              <div className="flex items-center justify-between mb-2">
+            <Card className="p-2">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center space-x-2">
-                  <div className="p-2 rounded-lg bg-glass-light text-primary">
-                    <CpuChipIcon className="h-5 w-5" />
+                  <div className="p-1.5 rounded-lg bg-glass-light text-primary">
+                    <CpuChipIcon className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-400">CPU Usage</p>
-                    <p className="text-2xl font-bold text-white">{systemInfo.cpuUsage?.toFixed(1) || 0}%</p>
+                    <p className="text-xs font-medium text-slate-400">CPU Usage</p>
+                    <p className="text-xl font-bold text-white">{systemInfo.cpuUsage?.toFixed(1) || 0}%</p>
                   </div>
                 </div>
                 {systemInfo.cpuUsage !== undefined && (
-                  <CircularProgress percentage={systemInfo.cpuUsage} size={60} strokeWidth={6} />
+                  <CircularProgress percentage={systemInfo.cpuUsage} size={50} strokeWidth={5} />
                 )}
               </div>
-              <p className="text-sm text-slate-400">{systemInfo.cpus} Cores • {systemInfo.architecture}</p>
+              <p className="text-xs text-slate-400">{systemInfo.cpus} Cores • {systemInfo.architecture}</p>
             </Card>
 
             {/* Memory Card - Compact */}
-            <Card className="p-3">
-              <div className="flex items-center justify-between mb-2">
+            <Card className="p-2">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center space-x-2">
-                  <div className="p-2 rounded-lg bg-glass-light text-success">
-                    <MemoryIcon className="h-5 w-5" />
+                  <div className="p-1.5 rounded-lg bg-glass-light text-success">
+                    <MemoryIcon className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-400">Memory</p>
-                    <p className="text-2xl font-bold text-white">{systemInfo.memoryUsage?.toFixed(1) || 0}%</p>
+                    <p className="text-xs font-medium text-slate-400">Memory</p>
+                    <p className="text-xl font-bold text-white">{systemInfo.memoryUsage?.toFixed(1) || 0}%</p>
                   </div>
                 </div>
                 {systemInfo.memoryUsage !== undefined && (
-                  <CircularProgress percentage={systemInfo.memoryUsage} size={60} strokeWidth={6} />
+                  <CircularProgress percentage={systemInfo.memoryUsage} size={50} strokeWidth={5} />
                 )}
               </div>
-              <p className="text-sm text-slate-400">
+              <p className="text-xs text-slate-400">
                 {formatBytes(systemInfo.memory * (systemInfo.memoryUsage / 100))} / {formatBytes(systemInfo.memory)}
               </p>
             </Card>
 
             {/* Storage Card - Compact */}
-            <Card className="p-3">
-              <div className="flex items-center justify-between mb-2">
+            <Card className="p-2">
+              <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center space-x-2">
-                  <div className="p-2 rounded-lg bg-glass-light text-warning">
-                    <CircleStackIcon className="h-5 w-5" />
+                  <div className="p-1.5 rounded-lg bg-glass-light text-warning">
+                    <CircleStackIcon className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-400">Storage</p>
-                    <p className="text-2xl font-bold text-white">
+                    <p className="text-xs font-medium text-slate-400">Storage</p>
+                    <p className="text-xl font-bold text-white">
                       {systemInfo.storageUsagePercent?.toFixed(1) || 0}%
                     </p>
                   </div>
                 </div>
                 {systemInfo.storageUsagePercent !== undefined && (
-                  <CircularProgress percentage={systemInfo.storageUsagePercent} size={60} strokeWidth={6} />
+                  <CircularProgress percentage={systemInfo.storageUsagePercent} size={50} strokeWidth={5} />
                 )}
               </div>
-              <p className="text-sm text-slate-400">
+              <p className="text-xs text-slate-400">
                 {systemInfo.storageFree && systemInfo.storageTotal
                   ? `${formatBytes(systemInfo.storageFree)} free of ${formatBytes(systemInfo.storageTotal)}`
                   : 'Storage info unavailable'}
