@@ -33,7 +33,7 @@ export default function ContainersView() {
   const [selectedContainer, setSelectedContainer] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showAll, setShowAll] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('overview');
   const [containerStats, setContainerStats] = useState(null);
   const [containerDetails, setContainerDetails] = useState(null);
@@ -51,7 +51,7 @@ export default function ContainersView() {
     // Refresh every 5 seconds
     const interval = setInterval(loadContainers, 5000);
     return () => clearInterval(interval);
-  }, [showAll]);
+  }, []);
 
   // Load stats when detail modal is open and stats tab is active
   useEffect(() => {
@@ -491,9 +491,12 @@ export default function ContainersView() {
     setActiveTab('overview');
   };
 
-  // Filter containers based on showAll toggle and search term
+  // Filter containers based on status filter and search term
   const filteredContainers = containers
-    .filter((c) => showAll || c.state?.toLowerCase() === 'running')
+    .filter((c) => {
+      if (statusFilter === 'all') return true;
+      return c.state?.toLowerCase() === statusFilter;
+    })
     .filter((c) => {
       if (!searchTerm) return true;
       const search = searchTerm.toLowerCase();
@@ -504,6 +507,13 @@ export default function ContainersView() {
         c.status?.toLowerCase().includes(search)
       );
     });
+
+  // Get unique statuses for filter dropdown
+  const statusCounts = containers.reduce((acc, c) => {
+    const state = c.state?.toLowerCase() || 'unknown';
+    acc[state] = (acc[state] || 0) + 1;
+    return acc;
+  }, {});
 
   if (isLoading && containers.length === 0) {
     return (
@@ -523,15 +533,18 @@ export default function ContainersView() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none whitespace-nowrap">
-            <input
-              type="checkbox"
-              checked={showAll}
-              onChange={(e) => setShowAll(e.target.checked)}
-              className="w-4 h-4 rounded border-glass-border bg-glass-darker text-primary focus:ring-primary focus:ring-offset-0"
-            />
-            <span>Show stopped</span>
-          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="glass-select text-sm py-2 px-3"
+          >
+            <option value="all">All ({containers.length})</option>
+            {statusCounts.running > 0 && <option value="running">Running ({statusCounts.running})</option>}
+            {statusCounts.exited > 0 && <option value="exited">Exited ({statusCounts.exited})</option>}
+            {statusCounts.paused > 0 && <option value="paused">Paused ({statusCounts.paused})</option>}
+            {statusCounts.created > 0 && <option value="created">Created ({statusCounts.created})</option>}
+            {statusCounts.restarting > 0 && <option value="restarting">Restarting ({statusCounts.restarting})</option>}
+          </select>
           <Button variant="secondary" onClick={loadContainers}>
             <ArrowPathIcon className="h-5 w-5" />
           </Button>
