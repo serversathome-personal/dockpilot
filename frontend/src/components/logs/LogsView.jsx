@@ -296,7 +296,7 @@ export default function LogsView() {
   }
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div className="h-[calc(100vh-8rem)] flex flex-col space-y-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
