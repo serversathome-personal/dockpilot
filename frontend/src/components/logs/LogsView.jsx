@@ -205,6 +205,8 @@ export default function LogsView() {
     if (isSelected) {
       stopLogStream(container.id);
       setSelectedContainers(prev => prev.filter(c => c.id !== container.id));
+      // Clear logs from this container
+      setLogs(prev => prev.filter(log => log.containerId !== container.id));
     } else {
       setSelectedContainers(prev => [...prev, container]);
       // Initialize WebSocket if needed, then subscribe
@@ -261,13 +263,15 @@ export default function LogsView() {
     setIsStreaming(prev => !prev);
   };
 
-  // Filter logs based on search
-  const filteredLogs = searchTerm
-    ? logs.filter(log =>
-        log.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.containerName.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : logs;
+  // Filter logs based on selected containers and search
+  const selectedContainerIds = new Set(selectedContainers.map(c => c.id));
+  const filteredLogs = logs
+    .filter(log => selectedContainerIds.has(log.containerId))
+    .filter(log =>
+      !searchTerm ||
+      log.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.containerName.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   // Filter containers for picker
   const filteredContainers = containerSearch
