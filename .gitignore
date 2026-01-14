@@ -19,9 +19,10 @@ out/
 .env.test.local
 .env.production.local
 
-# Logs
-logs/
+# Logs (but not frontend components)
+/logs/
 *.log
+!frontend/src/components/logs/
 
 # IDE
 .vscode/
