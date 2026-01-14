@@ -94,6 +94,18 @@ export default function LogsView() {
   // WebSocket connection ref
   const wsRef = useRef(null);
   const wsConnectedRef = useRef(false);
+  const pendingSubscriptionsRef = useRef([]);
+  const selectedContainersRef = useRef([]);
+  const isStreamingRef = useRef(true);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    selectedContainersRef.current = selectedContainers;
+  }, [selectedContainers]);
+
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
 
   // Initialize WebSocket connection
   const initWebSocket = useCallback(() => {
@@ -109,13 +121,14 @@ export default function LogsView() {
     ws.onopen = () => {
       console.log('Logs WebSocket connected');
       wsConnectedRef.current = true;
-      // Re-subscribe to any selected containers
-      selectedContainers.forEach(container => {
+      // Subscribe to any pending containers
+      pendingSubscriptionsRef.current.forEach(container => {
         ws.send(JSON.stringify({
           type: 'subscribe',
           payload: { containerId: container.id, tail: 100 }
         }));
       });
+      pendingSubscriptionsRef.current = [];
     };
 
     ws.onmessage = (event) => {
@@ -123,8 +136,9 @@ export default function LogsView() {
         const data = JSON.parse(event.data);
 
         if (data.type === 'log' && data.containerId) {
-          const container = selectedContainers.find(c => c.id === data.containerId);
-          if (container && isStreaming) {
+          // Use ref to get current selected containers (avoids stale closure)
+          const container = selectedContainersRef.current.find(c => c.id === data.containerId);
+          if (container && isStreamingRef.current) {
             const color = getContainerColor(data.containerId);
             const logLine = data.data?.trim();
             if (logLine) {
@@ -153,14 +167,14 @@ export default function LogsView() {
       wsConnectedRef.current = false;
       // Try to reconnect after a delay
       setTimeout(() => {
-        if (selectedContainers.length > 0) {
+        if (selectedContainersRef.current.length > 0) {
           initWebSocket();
         }
       }, 3000);
     };
 
     wsRef.current = ws;
-  }, [selectedContainers, isStreaming]);
+  }, []);
 
   // Start streaming logs for a container
   const startLogStream = (container) => {
@@ -192,10 +206,11 @@ export default function LogsView() {
       stopLogStream(container.id);
       setSelectedContainers(prev => prev.filter(c => c.id !== container.id));
     } else {
-      const newSelected = [...selectedContainers, container];
-      setSelectedContainers(newSelected);
+      setSelectedContainers(prev => [...prev, container]);
       // Initialize WebSocket if needed, then subscribe
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        // Queue container for subscription when WS connects
+        pendingSubscriptionsRef.current.push(container);
         initWebSocket();
       } else {
         startLogStream(container);
@@ -209,6 +224,8 @@ export default function LogsView() {
     setSelectedContainers(runningContainers);
     // Initialize WebSocket and subscribe to all
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      // Queue all running containers for subscription when WS connects
+      pendingSubscriptionsRef.current = [...runningContainers];
       initWebSocket();
     } else {
       runningContainers.forEach(c => {
