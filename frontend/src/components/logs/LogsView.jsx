@@ -39,6 +39,7 @@ export default function LogsView() {
   const [showContainerPicker, setShowContainerPicker] = useState(false);
   const [containerSearch, setContainerSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [streamFilter, setStreamFilter] = useState('all'); // 'all', 'stdout', 'stderr'
   const logsEndRef = useRef(null);
   const logsContainerRef = useRef(null);
   const containerColorsRef = useRef({});
@@ -205,6 +206,7 @@ export default function LogsView() {
                 message: logLine,
                 timestamp: new Date(),
                 color,
+                stream: data.stream || 'stdout',
               }].slice(-2000)); // Keep last 2000 lines
             }
           }
@@ -325,10 +327,11 @@ export default function LogsView() {
     setIsStreaming(prev => !prev);
   };
 
-  // Filter logs based on selected containers and search
+  // Filter logs based on selected containers, stream type, and search
   const selectedContainerIds = new Set(selectedContainers.map(c => c.id));
   const filteredLogs = logs
     .filter(log => selectedContainerIds.has(log.containerId))
+    .filter(log => streamFilter === 'all' || log.stream === streamFilter)
     .filter(log =>
       !searchTerm ||
       log.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -395,7 +398,7 @@ export default function LogsView() {
         </div>
       </div>
 
-      {/* Container Picker & Search */}
+      {/* Container Picker & Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         {/* Container Picker */}
         <div className="relative">
@@ -479,6 +482,17 @@ export default function LogsView() {
           )}
         </div>
 
+        {/* Stream Filter */}
+        <select
+          value={streamFilter}
+          onChange={(e) => setStreamFilter(e.target.value)}
+          className="px-3 py-2 bg-glass-dark border border-glass-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+        >
+          <option value="all">All Streams</option>
+          <option value="stdout">stdout</option>
+          <option value="stderr">stderr</option>
+        </select>
+
         {/* Log Search */}
         <div className="flex-1 relative">
           <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -560,7 +574,7 @@ export default function LogsView() {
             {filteredLogs.map((log) => (
               <div
                 key={log.id}
-                className="flex py-0.5 hover:bg-glass-light/30 px-2 rounded"
+                className={`flex py-0.5 hover:bg-glass-light/30 px-2 rounded ${log.stream === 'stderr' ? 'bg-danger/5' : ''}`}
               >
                 {selectedContainers.length > 1 && (
                   <span
@@ -574,7 +588,12 @@ export default function LogsView() {
                 <span className="text-slate-500 flex-shrink-0 mr-3">
                   {log.timestamp.toLocaleTimeString()}
                 </span>
-                <span className="text-slate-200 whitespace-pre-wrap break-all">
+                {log.stream === 'stderr' && (
+                  <span className="text-danger flex-shrink-0 mr-2 text-xs font-medium">
+                    ERR
+                  </span>
+                )}
+                <span className={`whitespace-pre-wrap break-all ${log.stream === 'stderr' ? 'text-danger-light' : 'text-slate-200'}`}>
                   {log.message}
                 </span>
               </div>

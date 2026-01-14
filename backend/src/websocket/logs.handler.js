@@ -164,11 +164,12 @@ class LogsWebSocketHandler {
 
       // Handle log data
       stream.on('data', (chunk) => {
-        const log = this.parseLogChunk(chunk);
+        const { text, stream: streamType } = this.parseLogChunk(chunk);
         this.send(ws, {
           type: 'log',
           containerId,
-          data: log,
+          data: text,
+          stream: streamType,
         });
       });
 
@@ -279,7 +280,7 @@ class LogsWebSocketHandler {
   /**
    * Parse log chunk from Docker stream
    * @param {Buffer} chunk - Log chunk
-   * @returns {string} Parsed log
+   * @returns {Object} Parsed log with text and stream type
    */
   parseLogChunk(chunk) {
     // Docker multiplexes stdout and stderr into a single stream
@@ -287,19 +288,20 @@ class LogsWebSocketHandler {
     // Header: [stream type (1 byte)][3 bytes padding][size (4 bytes)]
 
     if (chunk.length < 8) {
-      return chunk.toString('utf8');
+      return { text: chunk.toString('utf8'), stream: 'stdout' };
     }
 
     try {
       const header = chunk.slice(0, 8);
-      const streamType = header[0]; // 1 = stdout, 2 = stderr
+      const streamType = header[0]; // 0 = stdin, 1 = stdout, 2 = stderr
       const size = header.readUInt32BE(4);
       const payload = chunk.slice(8, 8 + size);
 
-      return payload.toString('utf8');
+      const streamName = streamType === 2 ? 'stderr' : 'stdout';
+      return { text: payload.toString('utf8'), stream: streamName };
     } catch (error) {
       // If parsing fails, return raw string
-      return chunk.toString('utf8');
+      return { text: chunk.toString('utf8'), stream: 'stdout' };
     }
   }
 
