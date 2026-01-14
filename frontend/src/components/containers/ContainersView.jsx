@@ -83,7 +83,7 @@ export default function ContainersView() {
   const loadContainers = async () => {
     try {
       setLoading(true);
-      const data = await containersAPI.list({ all: showAll });
+      const data = await containersAPI.list({ all: true });
       setContainers(data.data || []);
     } catch (error) {
       console.error('Failed to load containers:', error);
