@@ -333,7 +333,49 @@ export default function ContainerDetailView() {
             </div>
             <div>
               <p className="text-sm text-slate-400">Ports</p>
-              <p className="text-white">{formatPorts(container.ports) || 'None'}</p>
+              <div className="flex flex-wrap gap-2">
+                {container.ports && container.ports.length > 0 ? (
+                  (() => {
+                    // Create unique port mappings
+                    const portMappings = container.ports.map(port => {
+                      const publicPort = port.publicPort || port.PublicPort;
+                      const privatePort = port.privatePort || port.PrivatePort;
+                      const type = port.type || port.Type;
+                      const portText = publicPort ? `${publicPort}:${privatePort}/${type}` : `${privatePort}/${type}`;
+                      return { publicPort, privatePort, type, portText };
+                    });
+                    // Deduplicate by portText
+                    const uniquePorts = Array.from(
+                      new Map(portMappings.map(p => [p.portText, p])).values()
+                    );
+                    return uniquePorts.map((port, idx) => {
+                      if (port.publicPort) {
+                        const protocol = port.publicPort === 443 ? 'https' : 'http';
+                        const url = `${protocol}://${window.location.hostname}:${port.publicPort}`;
+                        return (
+                          <a
+                            key={idx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:text-primary-light underline"
+                            title={`Open ${url}`}
+                          >
+                            {port.portText}
+                          </a>
+                        );
+                      }
+                      return (
+                        <span key={idx} className="text-slate-400">
+                          {port.portText}
+                        </span>
+                      );
+                    });
+                  })()
+                ) : (
+                  <span className="text-slate-400">None</span>
+                )}
+              </div>
             </div>
             <div className="md:col-span-2">
               <p className="text-sm text-slate-400 mb-2">Networks</p>
