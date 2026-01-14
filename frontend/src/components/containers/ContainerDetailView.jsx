@@ -8,6 +8,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import Badge from '../common/Badge';
 import ContainerLogs from './ContainerLogs';
 import { formatBytes, formatUptime, formatPorts } from '../../utils/formatters';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   ArrowLeftIcon,
   PlayIcon,
@@ -26,6 +27,9 @@ export default function ContainerDetailView() {
   const [containerDetails, setContainerDetails] = useState(null);
   const [containerStats, setContainerStats] = useState(null);
   const [statsInterval, setStatsInterval] = useState(null);
+  const [cpuHistory, setCpuHistory] = useState([]);
+  const [memoryHistory, setMemoryHistory] = useState([]);
+  const [networkHistory, setNetworkHistory] = useState([]);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateOutput, setUpdateOutput] = useState('');
   const updateContentRef = useRef(null);
@@ -62,6 +66,9 @@ export default function ContainerDetailView() {
     } else {
       // Clear stats if container is not running
       setContainerStats(null);
+      setCpuHistory([]);
+      setMemoryHistory([]);
+      setNetworkHistory([]);
       if (statsInterval) {
         clearInterval(statsInterval);
         setStatsInterval(null);
@@ -102,7 +109,27 @@ export default function ContainerDetailView() {
 
     try {
       const data = await containersAPI.stats(id);
-      setContainerStats(data.data);
+      const stats = data.data;
+      setContainerStats(stats);
+
+      // Add to history (keep last 30 data points = 1 minute at 2s intervals)
+      const timestamp = Date.now();
+      const maxHistory = 30;
+
+      setCpuHistory((prev) => {
+        const newHistory = [...prev, { timestamp, value: stats.cpu.percent }];
+        return newHistory.slice(-maxHistory);
+      });
+
+      setMemoryHistory((prev) => {
+        const newHistory = [...prev, { timestamp, value: stats.memory.percent }];
+        return newHistory.slice(-maxHistory);
+      });
+
+      setNetworkHistory((prev) => {
+        const newHistory = [...prev, { timestamp, rx: stats.network.rx, tx: stats.network.tx }];
+        return newHistory.slice(-maxHistory);
+      });
     } catch (error) {
       console.error('Failed to load stats:', error);
       // Clear the interval if stats are no longer available
@@ -395,33 +422,189 @@ export default function ContainerDetailView() {
       {container?.state?.toLowerCase() === 'running' && (
         <Card title="Resource Usage">
           {containerStats ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <p className="text-sm text-slate-400">CPU Usage</p>
-                <p className="text-2xl font-bold text-white">{containerStats.cpu.percent}%</p>
+            <div className="space-y-6">
+              {/* Current Stats Summary */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pb-4 border-b border-glass-border">
+                <div>
+                  <p className="text-xs text-slate-400">CPU</p>
+                  <p className="text-lg font-bold text-white">{containerStats.cpu.percent}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Memory</p>
+                  <p className="text-lg font-bold text-white">{containerStats.memory.percent}%</p>
+                  <p className="text-xs text-slate-500">{formatBytes(containerStats.memory.usage)} / {formatBytes(containerStats.memory.limit)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Network</p>
+                  <p className="text-sm text-white">↓ {formatBytes(containerStats.network.rx)}</p>
+                  <p className="text-sm text-white">↑ {formatBytes(containerStats.network.tx)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Block I/O</p>
+                  <p className="text-sm text-white">R: {formatBytes(containerStats.blockIO.read)}</p>
+                  <p className="text-sm text-white">W: {formatBytes(containerStats.blockIO.write)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">PIDs</p>
+                  <p className="text-lg font-bold text-white">{containerStats.pids}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-slate-400">Memory Usage</p>
-                <p className="text-2xl font-bold text-white">
-                  {formatBytes(containerStats.memory.usage)} / {formatBytes(containerStats.memory.limit)}
-                </p>
-                <p className="text-sm text-slate-400">{containerStats.memory.percent}%</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Network I/O</p>
-                <p className="text-white">
-                  ↓ {formatBytes(containerStats.network.rx)} / ↑ {formatBytes(containerStats.network.tx)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Block I/O</p>
-                <p className="text-white">
-                  R: {formatBytes(containerStats.blockIO.read)} / W: {formatBytes(containerStats.blockIO.write)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">PIDs</p>
-                <p className="text-xl font-bold text-white">{containerStats.pids}</p>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* CPU Chart */}
+                <div>
+                  <p className="text-sm text-slate-400 mb-2">CPU Usage</p>
+                  <div className="h-32">
+                    {cpuHistory.length > 1 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={cpuHistory}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
+                          <XAxis
+                            dataKey="timestamp"
+                            stroke="rgba(148, 163, 184, 0.3)"
+                            tick={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="rgba(148, 163, 184, 0.3)"
+                            tick={{ fill: 'rgba(148, 163, 184, 0.7)', fontSize: 10 }}
+                            domain={[0, 100]}
+                            ticks={[0, 50, 100]}
+                            tickFormatter={(v) => `${v}%`}
+                            width={35}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              borderRadius: '8px',
+                              color: '#fff',
+                            }}
+                            labelFormatter={(v) => new Date(v).toLocaleTimeString()}
+                            formatter={(v) => [`${v}%`, 'CPU']}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#3b82f6"
+                            fill="rgba(59, 130, 246, 0.2)"
+                            strokeWidth={2}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                        Collecting data...
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Memory Chart */}
+                <div>
+                  <p className="text-sm text-slate-400 mb-2">Memory Usage</p>
+                  <div className="h-32">
+                    {memoryHistory.length > 1 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={memoryHistory}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
+                          <XAxis
+                            dataKey="timestamp"
+                            stroke="rgba(148, 163, 184, 0.3)"
+                            tick={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="rgba(148, 163, 184, 0.3)"
+                            tick={{ fill: 'rgba(148, 163, 184, 0.7)', fontSize: 10 }}
+                            domain={[0, 100]}
+                            ticks={[0, 50, 100]}
+                            tickFormatter={(v) => `${v}%`}
+                            width={35}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              borderRadius: '8px',
+                              color: '#fff',
+                            }}
+                            labelFormatter={(v) => new Date(v).toLocaleTimeString()}
+                            formatter={(v) => [`${v}%`, 'Memory']}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#10b981"
+                            fill="rgba(16, 185, 129, 0.2)"
+                            strokeWidth={2}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                        Collecting data...
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Network Chart */}
+                <div className="md:col-span-2">
+                  <p className="text-sm text-slate-400 mb-2">Network I/O</p>
+                  <div className="h-32">
+                    {networkHistory.length > 1 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={networkHistory}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
+                          <XAxis
+                            dataKey="timestamp"
+                            stroke="rgba(148, 163, 184, 0.3)"
+                            tick={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="rgba(148, 163, 184, 0.3)"
+                            tick={{ fill: 'rgba(148, 163, 184, 0.7)', fontSize: 10 }}
+                            tickFormatter={(v) => formatBytes(v)}
+                            width={60}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                              border: '1px solid rgba(148, 163, 184, 0.2)',
+                              borderRadius: '8px',
+                              color: '#fff',
+                            }}
+                            labelFormatter={(v) => new Date(v).toLocaleTimeString()}
+                            formatter={(v, name) => [formatBytes(v), name === 'rx' ? 'Download' : 'Upload']}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="rx"
+                            stroke="#8b5cf6"
+                            fill="rgba(139, 92, 246, 0.2)"
+                            strokeWidth={2}
+                            name="rx"
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="tx"
+                            stroke="#f59e0b"
+                            fill="rgba(245, 158, 11, 0.2)"
+                            strokeWidth={2}
+                            name="tx"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                        Collecting data...
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ) : (
