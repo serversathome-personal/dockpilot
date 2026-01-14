@@ -325,7 +325,7 @@ export default function ContainersView() {
         );
 
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-col gap-0.5 max-w-[120px]">
             {uniquePorts.map((port, idx) => {
               // Only make it clickable if there's a public port
               if (port.publicPort) {
@@ -439,6 +439,16 @@ export default function ContainersView() {
               <PlayIcon className="h-5 w-5" />
             </button>
           )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAction('update', container);
+            }}
+            className="text-success hover:text-success-light transition-colors"
+            title="Update"
+          >
+            <ArrowUpCircleIcon className="h-5 w-5" />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
