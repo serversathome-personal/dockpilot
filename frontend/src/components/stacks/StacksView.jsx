@@ -808,6 +808,16 @@ export default function StacksView() {
           <button
             onClick={(e) => {
               e.stopPropagation();
+              navigate(`/logs?stack=${stack.name}`);
+            }}
+            className="text-slate-400 hover:text-white transition-colors"
+            title="View Logs"
+          >
+            <DocumentMagnifyingGlassIcon className="h-5 w-5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
               setSelectedStack(stack);
               setShowDeleteModal(true);
             }}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../../store';
 import { containersAPI } from '../../api/containers.api';
 import Button from '../common/Button';
@@ -29,6 +30,7 @@ const CONTAINER_COLORS = [
 ];
 
 export default function LogsView() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { containers, setContainers, addNotification } = useStore();
   const [selectedContainers, setSelectedContainers] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -41,11 +43,56 @@ export default function LogsView() {
   const logsContainerRef = useRef(null);
   const containerColorsRef = useRef({});
   const [autoScroll, setAutoScroll] = useState(true);
+  const initialSelectionDoneRef = useRef(false);
 
   // Load containers on mount
   useEffect(() => {
     loadContainers();
   }, []);
+
+  // Handle URL params for pre-selecting containers
+  useEffect(() => {
+    if (isLoading || containers.length === 0 || initialSelectionDoneRef.current) return;
+
+    const containerIds = searchParams.get('containers');
+    const stackName = searchParams.get('stack');
+
+    if (containerIds) {
+      // Select specific containers by ID
+      const ids = containerIds.split(',');
+      const containersToSelect = containers.filter(c => ids.includes(c.id));
+      if (containersToSelect.length > 0) {
+        initialSelectionDoneRef.current = true;
+        setSelectedContainers(containersToSelect);
+        setAutoScroll(true);
+        // Queue containers for subscription
+        pendingSubscriptionsRef.current = [...containersToSelect];
+        initWebSocket();
+        setTimeout(scrollToBottom, 500);
+        // Clear the URL params
+        setSearchParams({});
+      }
+    } else if (stackName) {
+      // Select all containers belonging to a stack
+      const stackContainers = containers.filter(c => {
+        // Check if container belongs to the stack by looking at labels or project name
+        const labels = c.labels || {};
+        const projectName = labels['com.docker.compose.project'];
+        return projectName === stackName;
+      });
+      if (stackContainers.length > 0) {
+        initialSelectionDoneRef.current = true;
+        setSelectedContainers(stackContainers);
+        setAutoScroll(true);
+        // Queue containers for subscription
+        pendingSubscriptionsRef.current = [...stackContainers];
+        initWebSocket();
+        setTimeout(scrollToBottom, 500);
+        // Clear the URL params
+        setSearchParams({});
+      }
+    }
+  }, [isLoading, containers, searchParams]);
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {

@@ -453,9 +453,7 @@ export default function ContainersView() {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setSelectedContainer(container);
-              setActiveTab('logs');
-              setShowDetailModal(true);
+              navigate(`/logs?containers=${container.id}`);
             }}
             className="text-slate-400 hover:text-white transition-colors"
             title="View Logs"
