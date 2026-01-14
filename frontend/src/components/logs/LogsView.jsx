@@ -348,7 +348,7 @@ export default function LogsView() {
           </Button>
 
           {showContainerPicker && (
-            <div className="absolute top-full left-0 mt-2 w-80 max-h-96 overflow-auto bg-glass-dark border border-glass-border rounded-lg shadow-xl z-50">
+            <div className="absolute top-full left-0 mt-2 w-80 max-h-[70vh] overflow-auto bg-glass-dark border border-glass-border rounded-lg shadow-xl z-50">
               <div className="sticky top-0 bg-glass-dark p-2 border-b border-glass-border">
                 <input
                   type="text"
