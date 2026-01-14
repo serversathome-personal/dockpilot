@@ -50,9 +50,18 @@ export default function LogsView() {
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
     if (autoScroll && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      logsEndRef.current.scrollIntoView({ behavior: 'auto' });
     }
   }, [logs, autoScroll]);
+
+  // Force scroll to bottom when containers are selected
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      if (logsEndRef.current) {
+        logsEndRef.current.scrollIntoView({ behavior: 'auto' });
+      }
+    }, 100);
+  }, []);
 
   // Handle scroll to detect if user scrolled up
   const handleScroll = useCallback(() => {
@@ -209,6 +218,7 @@ export default function LogsView() {
       setLogs(prev => prev.filter(log => log.containerId !== container.id));
     } else {
       setSelectedContainers(prev => [...prev, container]);
+      setAutoScroll(true);
       // Initialize WebSocket if needed, then subscribe
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         // Queue container for subscription when WS connects
@@ -217,6 +227,8 @@ export default function LogsView() {
       } else {
         startLogStream(container);
       }
+      // Scroll to bottom after logs start arriving
+      setTimeout(scrollToBottom, 500);
     }
   };
 
@@ -224,6 +236,7 @@ export default function LogsView() {
   const selectAllRunning = () => {
     const runningContainers = containers.filter(c => c.state?.toLowerCase() === 'running');
     setSelectedContainers(runningContainers);
+    setAutoScroll(true);
     // Initialize WebSocket and subscribe to all
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       // Queue all running containers for subscription when WS connects
@@ -237,6 +250,8 @@ export default function LogsView() {
         }));
       });
     }
+    // Scroll to bottom after logs start arriving
+    setTimeout(scrollToBottom, 500);
   };
 
   // Clear all selections
