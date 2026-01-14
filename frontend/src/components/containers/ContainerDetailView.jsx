@@ -451,7 +451,7 @@ export default function ContainerDetailView() {
               </div>
 
               {/* Charts */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* CPU Chart */}
                 <div>
                   <p className="text-sm text-slate-400 mb-2">CPU Usage</p>
@@ -551,7 +551,7 @@ export default function ContainerDetailView() {
                 </div>
 
                 {/* Network Chart */}
-                <div className="md:col-span-2">
+                <div>
                   <p className="text-sm text-slate-400 mb-2">Network I/O</p>
                   <div className="h-32">
                     {networkHistory.length > 1 ? (
