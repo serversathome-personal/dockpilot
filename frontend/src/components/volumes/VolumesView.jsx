@@ -249,6 +249,7 @@ export default function VolumesView() {
           const search = searchTerm.toLowerCase();
           return vol.name?.toLowerCase().includes(search);
         })}
+        defaultSort={{ key: 'name', direction: 'asc' }}
       />
 
       {/* Create Volume Modal */}

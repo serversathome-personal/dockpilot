@@ -292,6 +292,7 @@ export default function NetworksView() {
           );
         })}
         onRowClick={handleShowDetails}
+        defaultSort={{ key: 'name', direction: 'asc' }}
       />
 
       {/* Create Network Modal */}

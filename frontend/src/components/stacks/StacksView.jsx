@@ -916,6 +916,7 @@ export default function StacksView() {
           );
         })}
         onRowClick={(stack) => navigate(`/stacks/${stack.name}`)}
+        defaultSort={{ key: 'name', direction: 'asc' }}
       />
 
       {/* Create Stack Modal */}

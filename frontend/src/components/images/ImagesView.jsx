@@ -328,6 +328,7 @@ export default function ImagesView() {
       <Table
         columns={columns}
         data={filteredImages}
+        defaultSort={{ key: 'repository', direction: 'asc' }}
       />
 
       {/* Delete Confirmation Modal */}

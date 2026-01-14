@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
 
-export default function Table({ columns, data, onRowClick }) {
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+export default function Table({ columns, data, onRowClick, defaultSort }) {
+  const [sortConfig, setSortConfig] = useState(defaultSort || { key: null, direction: 'asc' });
 
   const handleSort = (key) => {
     let direction = 'asc';

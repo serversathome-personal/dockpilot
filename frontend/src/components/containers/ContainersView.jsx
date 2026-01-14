@@ -560,7 +560,7 @@ export default function ContainersView() {
         )}
       </div>
 
-      <Table columns={columns} data={filteredContainers} onRowClick={(container) => navigate(`/containers/${container.id}`)} />
+      <Table columns={columns} data={filteredContainers} onRowClick={(container) => navigate(`/containers/${container.id}`)} defaultSort={{ key: 'name', direction: 'asc' }} />
 
       {/* Container Detail Modal */}
       <Modal
