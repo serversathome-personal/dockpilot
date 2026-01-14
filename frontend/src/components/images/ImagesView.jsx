@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../../store';
 import { imagesAPI } from '../../api/images.api';
+import { containersAPI } from '../../api/containers.api';
 import Table from '../common/Table';
 import Card from '../common/Card';
 import Button from '../common/Button';
@@ -19,6 +20,7 @@ export default function ImagesView() {
   const [searchTerm, setSearchTerm] = useState('');
   const [danglingFilter, setDanglingFilter] = useState('hide'); // 'hide', 'show', 'only'
   const [isPruning, setIsPruning] = useState(false);
+  const [containers, setContainers] = useState([]);
 
   useEffect(() => {
     loadImages();
@@ -30,9 +32,28 @@ export default function ImagesView() {
   const loadImages = async () => {
     try {
       setLoading(true);
-      const data = await imagesAPI.list();
-      // Add repository and tag as sortable fields
-      const imagesWithTags = (data.data || []).map(image => {
+      const [imagesData, containersData] = await Promise.all([
+        imagesAPI.list(),
+        containersAPI.list({ all: true }),
+      ]);
+
+      const containersList = containersData.data || [];
+      setContainers(containersList);
+
+      // Build a map of image ID to containers
+      const imageToContainers = {};
+      containersList.forEach(container => {
+        const imageId = container.imageId || container.ImageID;
+        if (imageId) {
+          if (!imageToContainers[imageId]) {
+            imageToContainers[imageId] = [];
+          }
+          imageToContainers[imageId].push(container.name);
+        }
+      });
+
+      // Add repository, tag, and containers as sortable fields
+      const imagesWithTags = (imagesData.data || []).map(image => {
         let repository = '<none>';
         let tag = '<none>';
 
@@ -42,10 +63,14 @@ export default function ImagesView() {
           tag = parts[1] || 'latest';
         }
 
+        // Get containers using this image
+        const usingContainers = imageToContainers[image.id] || [];
+
         return {
           ...image,
           repository,
           tag,
+          containers: usingContainers,
         };
       });
       setImages(imagesWithTags);
@@ -199,6 +224,25 @@ export default function ImagesView() {
       label: 'Size',
       sortable: true,
       render: (size) => formatBytes(size),
+    },
+    {
+      key: 'containers',
+      label: 'Used By',
+      sortable: true,
+      render: (containers) => {
+        if (!containers || containers.length === 0) {
+          return <span className="text-slate-500">-</span>;
+        }
+        return (
+          <div className="flex flex-col gap-0.5 max-w-[150px]">
+            {containers.map((name, idx) => (
+              <span key={idx} className="text-xs truncate" title={name}>
+                {name}
+              </span>
+            ))}
+          </div>
+        );
+      },
     },
     {
       key: 'actions',
