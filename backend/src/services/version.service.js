@@ -9,7 +9,7 @@ import logger from '../utils/logger.js';
 
 class VersionService {
   constructor() {
-    this.ghcrUrl = 'https://ghcr.io/v2/serversathome/dockpilot/tags/list';
+    this.ghcrUrl = 'https://ghcr.io/v2/serversathome-personal/dockpilot/tags/list';
     this.currentVersion = DOCKPILOT_VERSION;
   }
 

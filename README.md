@@ -95,7 +95,7 @@
 ```yaml
 services:
   dockpilot:
-    image: ghcr.io/serversathome/dockpilot:latest
+    image: ghcr.io/serversathome-personal/dockpilot:latest
     container_name: dockpilot
     restart: unless-stopped
     ports:
@@ -172,7 +172,7 @@ docker run -d \
   -e PORT=5000 \
   -e STACKS_DIR=/stacks \
   -e TZ=America/New_York \
-  ghcr.io/serversathome/dockpilot:latest
+  ghcr.io/serversathome-personal/dockpilot:latest
 ```
 
 **Production setup (custom path):**
@@ -187,7 +187,7 @@ docker run -d \
   -e PORT=5000 \
   -e STACKS_DIR=/mnt/tank/stacks \
   -e TZ=America/New_York \
-  ghcr.io/serversathome/dockpilot:latest
+  ghcr.io/serversathome-personal/dockpilot:latest
 ```
 
 💡 **Optional:** Add `-e PUID=1000 -e PGID=1000` for user/group settings
@@ -255,7 +255,7 @@ docker run -d \
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/ghcr.io/serversathome/dockpilot.git
+git clone https://github.com/serversathome-personal/dockpilot.git
 cd dockpilot
 ```
 
@@ -312,7 +312,7 @@ MIT License - see LICENSE file for details
 
 ## 👥 Contributors
 
-- **[serversathome](https://github.com/serversathome)** - Project creator and vibe engineer
+- **[serversathome](https://github.com/serversathome-personal)** - Project creator and vibe engineer
 - **Claude (Anthropic)** - AI pair programmer and code companion via [Claude Code](https://claude.com/claude-code)
 
 ## 📸 Screenshots
@@ -331,9 +331,9 @@ MIT License - see LICENSE file for details
 
 ## 📞 Support
 
-- GitHub Issues: [Report a bug](https://github.com/ghcr.io/serversathome/dockpilot/issues)
-- Discussions: [Ask a question](https://github.com/ghcr.io/serversathome/dockpilot/discussions)
+- GitHub Issues: [Report a bug](https://github.com/serversathome-personal/dockpilot/issues)
+- Discussions: [Ask a question](https://github.com/serversathome-personal/dockpilot/discussions)
 
 ---
 
-Made with ❤️ by [serversathome](https://github.com/serversathome)
+Made with ❤️ by [serversathome](https://github.com/serversathome-personal)

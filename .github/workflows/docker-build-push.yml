@@ -15,7 +15,7 @@ permissions:
   packages: write
 
 env:
-  DOCKER_IMAGE: ghcr.io/serversathome/dockpilot
+  DOCKER_IMAGE: ghcr.io/serversathome-personal/dockpilot
   PLATFORMS: linux/amd64
 
 jobs:
@@ -109,7 +109,7 @@ jobs:
             echo '```yaml'
             echo "services:"
             echo "  dockpilot:"
-            echo "    image: ghcr.io/serversathome/dockpilot:${TAG_NAME}"
+            echo "    image: ghcr.io/serversathome-personal/dockpilot:${TAG_NAME}"
             echo "    container_name: dockpilot"
             echo "    restart: unless-stopped"
             echo "    ports:"
