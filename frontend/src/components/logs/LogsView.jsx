@@ -574,7 +574,7 @@ export default function LogsView() {
             {filteredLogs.map((log) => (
               <div
                 key={log.id}
-                className={`flex py-0.5 hover:bg-glass-light/30 px-2 rounded ${log.stream === 'stderr' ? 'bg-danger/5' : ''}`}
+                className="flex py-0.5 hover:bg-glass-light/30 px-2 rounded"
               >
                 {selectedContainers.length > 1 && (
                   <span
@@ -588,12 +588,10 @@ export default function LogsView() {
                 <span className="text-slate-500 flex-shrink-0 mr-3">
                   {log.timestamp.toLocaleTimeString()}
                 </span>
-                {log.stream === 'stderr' && (
-                  <span className="text-danger flex-shrink-0 mr-2 text-xs font-medium">
-                    ERR
-                  </span>
-                )}
-                <span className={`whitespace-pre-wrap break-all ${log.stream === 'stderr' ? 'text-danger-light' : 'text-slate-200'}`}>
+                <span className={`flex-shrink-0 w-8 mr-2 text-xs ${log.stream === 'stderr' ? 'text-amber-500' : 'text-slate-600'}`}>
+                  {log.stream === 'stderr' ? 'err' : 'out'}
+                </span>
+                <span className="text-slate-200 whitespace-pre-wrap break-all">
                   {log.message}
                 </span>
               </div>
