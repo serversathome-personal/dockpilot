@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function ComposeValidation({ yaml, onGoToLine }) {
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
 
   const validation = useMemo(() => {
     if (!yaml || yaml.trim() === '') {
@@ -22,6 +22,13 @@ export default function ComposeValidation({ yaml, onGoToLine }) {
   const errorCount = validation.issues.filter((issue) => issue.type === 'error').length;
   const warningCount = validation.issues.filter((issue) => issue.type === 'warning').length;
   const infoCount = validation.issues.filter((issue) => issue.type === 'info').length;
+
+  // Auto-expand when there are errors or warnings
+  useEffect(() => {
+    if (validation.hasErrors || validation.hasWarnings) {
+      setShowDetails(true);
+    }
+  }, [validation.hasErrors, validation.hasWarnings]);
 
   const getStatusIcon = () => {
     if (validation.hasErrors) {
