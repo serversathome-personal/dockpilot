@@ -273,12 +273,10 @@ export default function LogsView() {
       log.containerName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-  // Filter containers for picker
-  const filteredContainers = containerSearch
-    ? containers.filter(c =>
-        c.name?.toLowerCase().includes(containerSearch.toLowerCase())
-      )
-    : containers;
+  // Filter and sort containers for picker
+  const filteredContainers = [...containers]
+    .filter(c => !containerSearch || c.name?.toLowerCase().includes(containerSearch.toLowerCase()))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   // Cleanup on unmount
   useEffect(() => {
