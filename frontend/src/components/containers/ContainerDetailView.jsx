@@ -30,6 +30,7 @@ export default function ContainerDetailView() {
   const [cpuHistory, setCpuHistory] = useState([]);
   const [memoryHistory, setMemoryHistory] = useState([]);
   const [networkHistory, setNetworkHistory] = useState([]);
+  const prevNetworkStats = useRef({ rx: 0, tx: 0, timestamp: 0 });
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateOutput, setUpdateOutput] = useState('');
   const updateContentRef = useRef(null);
@@ -69,6 +70,7 @@ export default function ContainerDetailView() {
       setCpuHistory([]);
       setMemoryHistory([]);
       setNetworkHistory([]);
+      prevNetworkStats.current = { rx: 0, tx: 0, timestamp: 0 };
       if (statsInterval) {
         clearInterval(statsInterval);
         setStatsInterval(null);
@@ -126,8 +128,19 @@ export default function ContainerDetailView() {
         return newHistory.slice(-maxHistory);
       });
 
+      // Calculate network throughput (bytes/sec) from delta
+      const prevNet = prevNetworkStats.current;
+      const timeDelta = prevNet.timestamp ? (timestamp - prevNet.timestamp) / 1000 : 2; // seconds
+      const rxRate = prevNet.rx ? Math.max(0, (stats.network.rx - prevNet.rx) / timeDelta) : 0;
+      const txRate = prevNet.tx ? Math.max(0, (stats.network.tx - prevNet.tx) / timeDelta) : 0;
+
+      // Store current values for next delta calculation
+      prevNetworkStats.current = { rx: stats.network.rx, tx: stats.network.tx, timestamp };
+
       setNetworkHistory((prev) => {
-        const newHistory = [...prev, { timestamp, rx: stats.network.rx, tx: stats.network.tx }];
+        // Skip first reading (no delta yet)
+        if (prevNet.timestamp === 0) return prev;
+        const newHistory = [...prev, { timestamp, rx: rxRate, tx: txRate }];
         return newHistory.slice(-maxHistory);
       });
     } catch (error) {
@@ -551,7 +564,7 @@ export default function ContainerDetailView() {
 
                 {/* Network Chart */}
                 <div>
-                  <p className="text-sm text-slate-400 mb-2">Network I/O</p>
+                  <p className="text-sm text-slate-400 mb-2">Network Throughput</p>
                   <div className="h-32">
                     {networkHistory.length > 1 ? (
                       <ResponsiveContainer width="100%" height="100%">
@@ -566,7 +579,7 @@ export default function ContainerDetailView() {
                           <YAxis
                             stroke="rgba(148, 163, 184, 0.3)"
                             tick={{ fill: 'rgba(148, 163, 184, 0.7)', fontSize: 10 }}
-                            tickFormatter={(v) => formatBytes(v)}
+                            tickFormatter={(v) => `${formatBytes(v)}/s`}
                             width={60}
                           />
                           <Tooltip
@@ -577,7 +590,7 @@ export default function ContainerDetailView() {
                               color: '#fff',
                             }}
                             labelFormatter={(v) => new Date(v).toLocaleTimeString()}
-                            formatter={(v, name) => [formatBytes(v), name === 'rx' ? 'Download' : 'Upload']}
+                            formatter={(v, name) => [`${formatBytes(v)}/s`, name === 'rx' ? 'Download' : 'Upload']}
                           />
                           <Area
                             type="monotone"
