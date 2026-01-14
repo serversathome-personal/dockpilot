@@ -8,7 +8,7 @@ import {
   GlobeAltIcon,
   CircleStackIcon,
   ArrowPathIcon,
-  ClipboardDocumentListIcon,
+  DocumentTextIcon,
   BellIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
@@ -24,7 +24,7 @@ const navigation = [
   { name: 'Volumes', to: '/volumes', icon: CircleStackIcon },
   { name: 'Updates', to: '/updates', icon: ArrowPathIcon },
   { name: 'Notifications', to: '/notifications', icon: BellIcon },
-  { name: 'Event Log', to: '/events', icon: ClipboardDocumentListIcon },
+  { name: 'Logs', to: '/logs', icon: DocumentTextIcon },
 ];
 
 export default function Sidebar() {

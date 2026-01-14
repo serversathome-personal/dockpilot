@@ -9,7 +9,7 @@ import ImagesView from './components/images/ImagesView';
 import NetworksView from './components/networks/NetworksView';
 import VolumesView from './components/volumes/VolumesView';
 import UpdatesView from './components/updates/UpdatesView';
-import EventLogView from './components/events/EventLogView';
+import LogsView from './components/logs/LogsView';
 import NotificationsView from './components/notifications/NotificationsView';
 
 export const router = createBrowserRouter([
@@ -54,8 +54,8 @@ export const router = createBrowserRouter([
         element: <UpdatesView />,
       },
       {
-        path: 'events',
-        element: <EventLogView />,
+        path: 'logs',
+        element: <LogsView />,
       },
       {
         path: 'notifications',
