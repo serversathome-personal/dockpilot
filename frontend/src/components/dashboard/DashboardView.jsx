@@ -9,7 +9,7 @@ import CircularProgress from '../common/CircularProgress';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   ServerIcon,
-  PhotoIcon,
+  Square3Stack3DIcon,
   GlobeAltIcon,
   CircleStackIcon,
   CubeIcon,
@@ -116,7 +116,7 @@ export default function DashboardView() {
     },
     {
       name: 'Images',
-      icon: PhotoIcon,
+      icon: Square3Stack3DIcon,
       total: dashboardStats.images.total,
       size: formatBytes(dashboardStats.images.size),
       color: 'text-warning',

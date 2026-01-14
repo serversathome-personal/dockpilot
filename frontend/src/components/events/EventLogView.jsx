@@ -10,7 +10,7 @@ import {
   PauseIcon,
   CubeIcon,
   ServerIcon,
-  PhotoIcon,
+  Square3Stack3DIcon,
   GlobeAltIcon,
   CircleStackIcon,
   FunnelIcon,
@@ -102,7 +102,7 @@ export default function EventLogView() {
       case 'container':
         return <ServerIcon className="h-4 w-4" />;
       case 'image':
-        return <PhotoIcon className="h-4 w-4" />;
+        return <Square3Stack3DIcon className="h-4 w-4" />;
       case 'network':
         return <GlobeAltIcon className="h-4 w-4" />;
       case 'volume':
