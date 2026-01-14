@@ -24,6 +24,7 @@ import {
   ArrowUpCircleIcon,
   DocumentTextIcon,
   CommandLineIcon,
+  FunnelIcon,
 } from '@heroicons/react/24/outline';
 import ShellModal from './ShellModal';
 
@@ -533,18 +534,21 @@ export default function ContainersView() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="glass-select text-sm py-2 px-3"
-          >
-            <option value="all">All ({containers.length})</option>
-            {statusCounts.running > 0 && <option value="running">Running ({statusCounts.running})</option>}
-            {statusCounts.exited > 0 && <option value="exited">Exited ({statusCounts.exited})</option>}
-            {statusCounts.paused > 0 && <option value="paused">Paused ({statusCounts.paused})</option>}
-            {statusCounts.created > 0 && <option value="created">Created ({statusCounts.created})</option>}
-            {statusCounts.restarting > 0 && <option value="restarting">Restarting ({statusCounts.restarting})</option>}
-          </select>
+          <div className="flex items-center gap-2">
+            <FunnelIcon className="h-5 w-5 text-slate-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="glass-select text-sm py-2 px-3"
+            >
+              <option value="all">All ({containers.length})</option>
+              {statusCounts.running > 0 && <option value="running">Running ({statusCounts.running})</option>}
+              {statusCounts.exited > 0 && <option value="exited">Exited ({statusCounts.exited})</option>}
+              {statusCounts.paused > 0 && <option value="paused">Paused ({statusCounts.paused})</option>}
+              {statusCounts.created > 0 && <option value="created">Created ({statusCounts.created})</option>}
+              {statusCounts.restarting > 0 && <option value="restarting">Restarting ({statusCounts.restarting})</option>}
+            </select>
+          </div>
           <Button variant="secondary" onClick={loadContainers}>
             <ArrowPathIcon className="h-5 w-5" />
           </Button>
