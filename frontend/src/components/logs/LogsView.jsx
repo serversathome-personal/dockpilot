@@ -363,13 +363,23 @@ export default function LogsView() {
           {showContainerPicker && (
             <div className="absolute top-full left-0 mt-2 w-80 max-h-[70vh] overflow-auto bg-glass-dark border border-glass-border rounded-lg shadow-xl z-50">
               <div className="sticky top-0 bg-glass-dark p-2 border-b border-glass-border">
-                <input
-                  type="text"
-                  placeholder="Search containers..."
-                  value={containerSearch}
-                  onChange={(e) => setContainerSearch(e.target.value)}
-                  className="w-full px-3 py-2 bg-glass-darker border border-glass-border rounded text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search containers..."
+                    value={containerSearch}
+                    onChange={(e) => setContainerSearch(e.target.value)}
+                    className="w-full px-3 py-2 pr-8 bg-glass-darker border border-glass-border rounded text-white text-sm placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  {containerSearch && (
+                    <button
+                      onClick={() => setContainerSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full bg-slate-600 hover:bg-slate-500 text-white"
+                    >
+                      <XMarkIcon className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={selectAllRunning}
