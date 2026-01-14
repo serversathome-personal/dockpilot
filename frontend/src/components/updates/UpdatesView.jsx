@@ -914,6 +914,11 @@ export default function UpdatesView() {
               <option value="minor">Minor updates only</option>
               <option value="checkOnly">Check only (notify)</option>
             </select>
+            {newSchedule.updateType === 'checkOnly' && (
+              <p className="mt-2 text-xs text-amber-400">
+                Ensure "Image updates available" is enabled in Settings &gt; Notifications to receive notifications.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center">
