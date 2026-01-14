@@ -122,7 +122,7 @@ export default function ContainerDetailView() {
       });
 
       setMemoryHistory((prev) => {
-        const newHistory = [...prev, { timestamp, value: stats.memory.percent }];
+        const newHistory = [...prev, { timestamp, value: stats.memory.usage, limit: stats.memory.limit }];
         return newHistory.slice(-maxHistory);
       });
 
@@ -518,10 +518,9 @@ export default function ContainerDetailView() {
                           <YAxis
                             stroke="rgba(148, 163, 184, 0.3)"
                             tick={{ fill: 'rgba(148, 163, 184, 0.7)', fontSize: 10 }}
-                            domain={[0, 100]}
-                            ticks={[0, 50, 100]}
-                            tickFormatter={(v) => `${v}%`}
-                            width={35}
+                            domain={[0, memoryHistory[0]?.limit || 'auto']}
+                            tickFormatter={(v) => formatBytes(v)}
+                            width={50}
                           />
                           <Tooltip
                             contentStyle={{
@@ -531,7 +530,7 @@ export default function ContainerDetailView() {
                               color: '#fff',
                             }}
                             labelFormatter={(v) => new Date(v).toLocaleTimeString()}
-                            formatter={(v) => [`${v}%`, 'Memory']}
+                            formatter={(v) => [formatBytes(v), 'Memory']}
                           />
                           <Area
                             type="monotone"
