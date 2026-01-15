@@ -212,12 +212,24 @@ export default function StacksView() {
         }
       }
 
-      // Create the stack first
-      await stacksAPI.create({
-        name: stackName,
-        composeContent: newStackCompose,
-        envVars: envVarsObject,
-      });
+      // Create or update the stack
+      try {
+        await stacksAPI.create({
+          name: stackName,
+          composeContent: newStackCompose,
+          envVars: envVarsObject,
+        });
+      } catch (createError) {
+        // If stack already exists, update it instead
+        if (createError.message?.includes('already exists')) {
+          await stacksAPI.updateCompose(stackName, newStackCompose);
+          if (Object.keys(envVarsObject).length > 0) {
+            await stacksAPI.updateEnv(stackName, envVarsObject);
+          }
+        } else {
+          throw createError;
+        }
+      }
 
       // Close the create modal and reset form
       setShowCreateModal(false);
