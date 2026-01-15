@@ -190,6 +190,8 @@ export default function StacksView() {
       return;
     }
 
+    const stackName = newStackName.trim();
+
     try {
       setLoading(true);
 
@@ -210,38 +212,78 @@ export default function StacksView() {
         }
       }
 
-      // Create the stack
+      // Create the stack first
       await stacksAPI.create({
-        name: newStackName,
+        name: stackName,
         composeContent: newStackCompose,
         envVars: envVarsObject,
       });
 
-      // Start the stack immediately
-      const startResult = await stacksAPI.start(newStackName);
-
-      // Show terminal output
-      setTerminalTitle(`Deploying Stack: ${newStackName}`);
-      setTerminalOutput(startResult.output || 'Stack deployed successfully');
-      setShowTerminalModal(true);
-
-      addNotification({
-        type: 'success',
-        message: `Stack ${newStackName} deployed successfully`,
-      });
-
+      // Close the create modal and reset form
       setShowCreateModal(false);
       setNewStackName('');
       setNewStackCompose('version: "3.8"\nservices:\n  app:\n    image: nginx:latest\n    ports:\n      - "80:80"\n');
       setNewStackEnvVars('');
-      await loadStacks();
+
+      // Setup terminal modal for streaming
+      setTerminalOutput('');
+      setTerminalLogs('');
+      setTerminalStackName(stackName);
+      setShowingLogs(false);
+      setTerminalTitle(`Deploying Stack: ${stackName}`);
+      setShowTerminalModal(true);
+
+      // Connect to SSE endpoint for real-time output
+      const apiUrl = import.meta.env.DEV
+        ? `http://${window.location.hostname}:5000/api/stacks/${stackName}/stream-start`
+        : `/api/stacks/${stackName}/stream-start`;
+      const eventSource = new EventSource(apiUrl);
+
+      eventSource.onmessage = (event) => {
+        const { type, data } = JSON.parse(event.data);
+
+        if (type === 'stdout' || type === 'stderr') {
+          setTerminalOutput((prev) => prev + data);
+        } else if (type === 'done') {
+          eventSource.close();
+          addNotification({
+            type: 'success',
+            message: `Stack ${stackName} deployed successfully`
+          });
+          setLoading(false);
+          loadStacks();
+
+          // Pre-load logs first, then switch display after 2 seconds
+          setTimeout(async () => {
+            await loadTerminalLogs();
+            setShowingLogs(true);
+            setTerminalOutput('');
+          }, 2000);
+        } else if (type === 'error') {
+          eventSource.close();
+          addNotification({
+            type: 'error',
+            message: data
+          });
+          setLoading(false);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE error:', error);
+        eventSource.close();
+        addNotification({
+          type: 'error',
+          message: 'Failed to stream deployment output'
+        });
+        setLoading(false);
+      };
     } catch (error) {
       console.error('Failed to deploy stack:', error);
       addNotification({
         type: 'error',
         message: error.message || 'Failed to deploy stack',
       });
-    } finally {
       setLoading(false);
     }
   };
