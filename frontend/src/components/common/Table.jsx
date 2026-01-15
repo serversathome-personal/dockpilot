@@ -19,6 +19,20 @@ export default function Table({ columns, data, onRowClick, defaultSort }) {
     let aValue = a[sortConfig.key];
     let bValue = b[sortConfig.key];
 
+    // Handle array values (e.g., ports) - sort by first public port
+    if (Array.isArray(aValue)) {
+      const aPort = aValue.find(p => p.PublicPort || p.publicPort);
+      aValue = aPort ? (aPort.PublicPort || aPort.publicPort) : 0;
+    }
+    if (Array.isArray(bValue)) {
+      const bPort = bValue.find(p => p.PublicPort || p.publicPort);
+      bValue = bPort ? (bPort.PublicPort || bPort.publicPort) : 0;
+    }
+
+    // Handle null/undefined values
+    if (aValue == null) aValue = '';
+    if (bValue == null) bValue = '';
+
     // Case-insensitive comparison for strings
     if (typeof aValue === 'string') aValue = aValue.toLowerCase();
     if (typeof bValue === 'string') bValue = bValue.toLowerCase();
