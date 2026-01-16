@@ -3,6 +3,7 @@ import path from 'path';
 import { asyncHandler, ApiError } from '../../middleware/error.middleware.js';
 import { validate, schemas } from '../../middleware/validation.middleware.js';
 import stackService from '../../services/stack.service.js';
+import dockerService from '../../services/docker.service.js';
 import notificationService from '../../services/notification.service.js';
 import config from '../../config/env.js';
 import logger from '../../utils/logger.js';
@@ -470,6 +471,25 @@ router.get('/:name/stream-update', asyncHandler(async (req, res) => {
         res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
       }
     );
+
+    // Prune dangling images (old images that are no longer tagged after pull)
+    res.write(`data: ${JSON.stringify({ type: 'stdout', data: '\n=== Cleaning Up Old Images ===\n' })}\n\n`);
+    try {
+      // Prune only dangling images (all: false means only dangling)
+      const pruneResult = await dockerService.pruneImages({ all: false });
+      const deletedCount = pruneResult.ImagesDeleted?.length || 0;
+      const spaceReclaimed = pruneResult.SpaceReclaimed || 0;
+
+      if (deletedCount > 0) {
+        const spaceMB = (spaceReclaimed / 1024 / 1024).toFixed(2);
+        res.write(`data: ${JSON.stringify({ type: 'stdout', data: `Removed ${deletedCount} old image(s), reclaimed ${spaceMB} MB\n` })}\n\n`);
+      } else {
+        res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'No old images to clean up.\n' })}\n\n`);
+      }
+    } catch (pruneError) {
+      logger.debug(`Could not prune images: ${pruneError.message}`);
+      res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'Could not clean up old images (they may still be in use).\n' })}\n\n`);
+    }
 
     // Send completion event
     res.write(`data: ${JSON.stringify({ type: 'done', data: 'Stack updated successfully' })}\n\n`);

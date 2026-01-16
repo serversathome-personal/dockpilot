@@ -236,6 +236,7 @@ router.get('/:id/stream-update', asyncHandler(async (req, res) => {
     // Get container details to find the image
     const container = await dockerService.getContainer(id);
     const imageName = container.image;
+    const oldImageId = container.imageId;
 
     res.write(`data: ${JSON.stringify({ type: 'stdout', data: `Pulling latest image: ${imageName}\n` })}\n\n`);
 
@@ -249,7 +250,22 @@ router.get('/:id/stream-update', asyncHandler(async (req, res) => {
     if (wasUpdated) {
       res.write(`data: ${JSON.stringify({ type: 'stdout', data: '\nNew image pulled. Restarting container...\n' })}\n\n`);
       await dockerService.restartContainer(id);
-      res.write(`data: ${JSON.stringify({ type: 'done', data: 'Container updated and restarted successfully' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'Container restarted successfully.\n' })}\n\n`);
+
+      // Try to remove the old image if it's no longer used
+      if (oldImageId) {
+        try {
+          res.write(`data: ${JSON.stringify({ type: 'stdout', data: '\nCleaning up old image...\n' })}\n\n`);
+          await dockerService.removeImage(oldImageId, { force: false });
+          res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'Old image removed.\n' })}\n\n`);
+        } catch (cleanupError) {
+          // Image might still be in use by other containers, that's ok
+          logger.debug(`Could not remove old image ${oldImageId}: ${cleanupError.message}`);
+          res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'Old image still in use, skipping cleanup.\n' })}\n\n`);
+        }
+      }
+
+      res.write(`data: ${JSON.stringify({ type: 'done', data: 'Container updated successfully' })}\n\n`);
     } else {
       res.write(`data: ${JSON.stringify({ type: 'done', data: 'Container is already up to date. No restart needed.' })}\n\n`);
     }
