@@ -324,6 +324,7 @@ MIT License - see LICENSE file for details
 
 - Inspired by [Dockge](https://github.com/louislam/dockge) for file-based architecture
 - UI design inspired by [Portainer](https://github.com/portainer/portainer)
+- Docker run to compose conversion adapted from [ComposeToolbox](https://github.com/bluegoosemedia/composetoolbox) by Blue Goose Media
 
 ## 👥 Contributors
 
