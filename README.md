@@ -101,7 +101,7 @@ services:
     ports:
       - "5000:5000"    # Web UI and API (frontend served by backend)
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # Docker socket (read-only)
+      - /var/run/docker.sock:/var/run/docker.sock  # Docker socket
       - ./stacks:/stacks                              # Stack storage; left side MUST MATCH right side!
       - ./data:/app/backend/config/data               # Application data
     environment:
@@ -165,7 +165,7 @@ volumes:
 docker run -d \
   --name dockpilot \
   -p 5000:5000 \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   -v $(pwd)/stacks:/stacks \
   -v $(pwd)/data:/app/backend/config/data \
   -e NODE_ENV=production \
@@ -180,7 +180,7 @@ docker run -d \
 docker run -d \
   --name dockpilot \
   -p 5000:5000 \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   -v /mnt/tank/stacks:/mnt/tank/stacks \
   -v $(pwd)/data:/app/backend/config/data \
   -e NODE_ENV=production \
@@ -254,7 +254,7 @@ When an update is available, an "Update" button appears in the header. Clicking 
 
 ## 🔐 Security Notes
 
-- Docker socket is mounted read-only by default
+- Docker socket requires write access for self-update and container management
 - No built-in authentication (use reverse proxy for production)
 - Consider using Docker socket proxy for enhanced security
 - Runs as root inside container (required for Docker access)
