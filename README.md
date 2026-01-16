@@ -216,6 +216,21 @@ docker run -d \
 | `PUID` | - | User ID for created stack files (optional) |
 | `PGID` | - | Group ID for created stack files (optional) |
 
+### Self-Update
+
+DockPilot can update itself when a new version is available. This works automatically if DockPilot was started via `docker compose` - no additional configuration needed.
+
+When an update is available, an "Update" button appears in the header. Clicking it will:
+1. Pull the new DockPilot image
+2. Restart the container with the new image
+3. Automatically reconnect once the update is complete
+
+**Requirements:**
+- DockPilot must be started via `docker compose` (not `docker run`)
+- The Docker socket must NOT be read-only (`:ro`) - DockPilot needs to spawn an updater container
+
+**How it works:** DockPilot detects its own compose project from Docker labels (`com.docker.compose.project.working_dir`) and spawns a temporary container that runs `docker compose pull && docker compose up -d` to update itself. Your compose file is never modified.
+
 ## 🏗️ Architecture
 
 ### File-Based Stacks (Dockge-style)

@@ -169,16 +169,52 @@ router.get('/network-history', asyncHandler(async (req, res) => {
 
 /**
  * GET /api/dashboard/version
- * Get DockPilot version info
+ * Get DockPilot version info including update status and self-update configuration
  */
 router.get('/version', asyncHandler(async (req, res) => {
   const version = versionService.getCurrentVersion();
+
+  // Check for updates and self-update status in parallel
+  let updateInfo = { hasUpdate: false };
+  let selfUpdateStatus = { configured: false };
+
+  try {
+    [updateInfo, selfUpdateStatus] = await Promise.all([
+      versionService.checkForUpdate().catch(err => {
+        logger.warn('Failed to check for updates:', err.message);
+        return { hasUpdate: false };
+      }),
+      versionService.getSelfUpdateStatus().catch(err => {
+        logger.warn('Failed to get self-update status:', err.message);
+        return { configured: false };
+      }),
+    ]);
+  } catch (error) {
+    logger.warn('Failed to get version info:', error.message);
+  }
 
   res.json({
     success: true,
     data: {
       version,
+      selfUpdate: selfUpdateStatus,
+      ...updateInfo,
     },
+  });
+}));
+
+/**
+ * POST /api/dashboard/self-update
+ * Trigger DockPilot self-update
+ */
+router.post('/self-update', asyncHandler(async (req, res) => {
+  logger.info('Self-update requested');
+
+  const result = await versionService.executeSelfUpdate();
+
+  res.json({
+    success: true,
+    data: result,
   });
 }));
 

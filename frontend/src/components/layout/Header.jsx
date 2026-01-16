@@ -1,11 +1,69 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store';
-import { BellIcon, XMarkIcon, Bars3Icon } from '@heroicons/react/24/outline';
+import { dashboardAPI } from '../../api/dashboard.api';
+import { BellIcon, XMarkIcon, Bars3Icon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 export default function Header() {
-  const { wsConnected, notifications, removeNotification, clearNotifications, toggleSidebar } = useStore();
+  const { wsConnected, notifications, removeNotification, clearNotifications, toggleSidebar, addNotification } = useStore();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [versionInfo, setVersionInfo] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const notificationRef = useRef(null);
+
+  // Fetch version info on mount
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const response = await dashboardAPI.getVersion();
+        setVersionInfo(response.data);
+      } catch (error) {
+        console.error('Failed to fetch version info:', error);
+      }
+    };
+
+    fetchVersion();
+    // Check for updates every 30 minutes
+    const interval = setInterval(fetchVersion, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Handle self-update
+  const handleSelfUpdate = async () => {
+    setShowUpdateConfirm(false);
+    setIsUpdating(true);
+
+    try {
+      await dashboardAPI.triggerSelfUpdate();
+      addNotification({
+        type: 'info',
+        message: 'DockPilot is updating. The page will reload when complete...',
+      });
+
+      // Poll for reconnection
+      const checkConnection = setInterval(async () => {
+        try {
+          await dashboardAPI.getVersion();
+          clearInterval(checkConnection);
+          window.location.reload();
+        } catch {
+          // Still updating, keep waiting
+        }
+      }, 3000);
+
+      // Stop polling after 2 minutes
+      setTimeout(() => {
+        clearInterval(checkConnection);
+        setIsUpdating(false);
+      }, 120000);
+    } catch (error) {
+      setIsUpdating(false);
+      addNotification({
+        type: 'error',
+        message: `Failed to update: ${error.message}`,
+      });
+    }
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -78,6 +136,66 @@ export default function Header() {
 
         {/* Right side - status and notifications */}
         <div className="flex items-center space-x-2 lg:space-x-4">
+          {/* Version Badge and Update Button */}
+          {versionInfo && (
+            <div className="flex items-center space-x-2">
+              <span className="hidden sm:inline text-xs text-slate-400">
+                v{versionInfo.version}
+              </span>
+              {versionInfo.hasUpdate && (
+                <>
+                  {versionInfo.selfUpdate?.configured ? (
+                    <button
+                      onClick={() => setShowUpdateConfirm(true)}
+                      disabled={isUpdating}
+                      className="flex items-center space-x-1 px-2 py-1 text-xs bg-primary/20 text-primary hover:bg-primary/30 rounded transition-colors disabled:opacity-50"
+                      title={`Update to v${versionInfo.latestVersion}`}
+                    >
+                      <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">
+                        {isUpdating ? 'Updating...' : 'Update'}
+                      </span>
+                    </button>
+                  ) : (
+                    <span
+                      className="px-2 py-1 text-xs bg-warning/20 text-warning rounded cursor-help"
+                      title={`v${versionInfo.latestVersion} available. Self-update requires DockPilot to be started via docker compose.`}
+                    >
+                      Update Available
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Update Confirmation Modal */}
+          {showUpdateConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+              <div className="bg-glass-dark border border-glass-border rounded-lg p-6 max-w-md mx-4 shadow-glass-lg">
+                <h3 className="text-lg font-semibold text-white mb-2">Update DockPilot?</h3>
+                <p className="text-sm text-slate-300 mb-4">
+                  This will update DockPilot from v{versionInfo.version} to v{versionInfo.latestVersion}.
+                  There will be brief downtime while the container restarts.
+                </p>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowUpdateConfirm(false)}
+                    className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSelfUpdate}
+                    className="px-4 py-2 text-sm bg-primary hover:bg-primary-dark text-white rounded transition-colors"
+                  >
+                    Update Now
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* GitHub Link */}
           <a
             href="https://github.com/serversathome-personal/dockpilot"

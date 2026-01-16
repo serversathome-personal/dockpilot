@@ -8,4 +8,5 @@ export const dashboardAPI = {
   getMemoryHistory: () => apiClient.get('/dashboard/memory-history'),
   getNetworkHistory: () => apiClient.get('/dashboard/network-history'),
   getVersion: () => apiClient.get('/dashboard/version'),
+  triggerSelfUpdate: () => apiClient.post('/dashboard/self-update'),
 };

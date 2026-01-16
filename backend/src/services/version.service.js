@@ -3,6 +3,7 @@
  * Checks GHCR for DockPilot updates
  */
 
+import Docker from 'dockerode';
 import { DOCKPILOT_VERSION } from '../config/version.js';
 import configStore from '../storage/config.store.js';
 import logger from '../utils/logger.js';
@@ -11,6 +12,7 @@ class VersionService {
   constructor() {
     this.ghcrUrl = 'https://ghcr.io/v2/serversathome-personal/dockpilot/tags/list';
     this.currentVersion = DOCKPILOT_VERSION;
+    this.docker = new Docker({ socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' });
   }
 
   /**
@@ -178,6 +180,134 @@ class VersionService {
    */
   getCurrentVersion() {
     return this.currentVersion;
+  }
+
+  /**
+   * Find DockPilot's own container and extract compose info from labels
+   * Docker Compose adds labels like com.docker.compose.project.working_dir
+   * @returns {Promise<object|null>} Compose info or null if not found
+   */
+  async getComposeInfo() {
+    try {
+      // Find containers that might be DockPilot
+      const containers = await this.docker.listContainers({ all: true });
+
+      // Look for container with dockpilot in the image name or container name
+      const dockpilotContainer = containers.find(c => {
+        const image = c.Image.toLowerCase();
+        const name = (c.Names[0] || '').toLowerCase();
+        return image.includes('dockpilot') || name.includes('dockpilot');
+      });
+
+      if (!dockpilotContainer) {
+        logger.debug('Could not find DockPilot container');
+        return null;
+      }
+
+      const labels = dockpilotContainer.Labels || {};
+      const workingDir = labels['com.docker.compose.project.working_dir'];
+      const projectName = labels['com.docker.compose.project'];
+      const configFiles = labels['com.docker.compose.project.config_files'];
+
+      if (!workingDir) {
+        logger.debug('DockPilot container found but no compose working_dir label');
+        return null;
+      }
+
+      return {
+        workingDir,
+        projectName,
+        configFiles,
+        containerId: dockpilotContainer.Id,
+        containerName: dockpilotContainer.Names[0]?.replace(/^\//, ''),
+      };
+    } catch (error) {
+      logger.error('Failed to get compose info:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Check if self-update is available
+   * Self-update works automatically if DockPilot was started via docker-compose
+   * @returns {Promise<object>} Configuration status
+   */
+  async getSelfUpdateStatus() {
+    const composeInfo = await this.getComposeInfo();
+
+    return {
+      configured: !!composeInfo,
+      composeDir: composeInfo?.workingDir || null,
+      projectName: composeInfo?.projectName || null,
+    };
+  }
+
+  /**
+   * Execute self-update by spawning an updater container
+   * The updater container will pull the new image and restart DockPilot
+   * @returns {Promise<object>} Result of the update initiation
+   */
+  async executeSelfUpdate() {
+    const composeInfo = await this.getComposeInfo();
+
+    if (!composeInfo) {
+      throw new Error(
+        'Self-update not available. DockPilot must be started via docker-compose for self-update to work.'
+      );
+    }
+
+    const { workingDir, projectName } = composeInfo;
+    logger.info('Initiating DockPilot self-update', { workingDir, projectName });
+
+    try {
+      // First, ensure the docker:cli image is available
+      logger.debug('Pulling docker:cli image for updater container');
+      await new Promise((resolve, reject) => {
+        this.docker.pull('docker:cli', (err, stream) => {
+          if (err) return reject(err);
+          this.docker.modem.followProgress(stream, (err) => {
+            if (err) return reject(err);
+            resolve();
+          });
+        });
+      });
+
+      // Build the compose command
+      // Use project name if available for more precise targeting
+      const composeCmd = projectName
+        ? `docker compose -p ${projectName} pull && docker compose -p ${projectName} up -d --force-recreate`
+        : 'docker compose pull && docker compose up -d --force-recreate';
+
+      // Create and start the updater container
+      // The sleep gives time for the API response to be sent before DockPilot restarts
+      const container = await this.docker.createContainer({
+        Image: 'docker:cli',
+        Cmd: [
+          'sh', '-c',
+          `sleep 3 && cd /compose && ${composeCmd}`
+        ],
+        HostConfig: {
+          Binds: [
+            '/var/run/docker.sock:/var/run/docker.sock',
+            `${workingDir}:/compose:ro`
+          ],
+          AutoRemove: true,
+        },
+        name: `dockpilot-updater-${Date.now()}`,
+      });
+
+      await container.start();
+
+      logger.info('Self-update initiated, DockPilot will restart shortly');
+
+      return {
+        success: true,
+        message: 'Self-update initiated. DockPilot will restart in a few seconds.',
+      };
+    } catch (error) {
+      logger.error('Failed to initiate self-update:', error);
+      throw new Error(`Failed to initiate self-update: ${error.message}`);
+    }
   }
 }
 
