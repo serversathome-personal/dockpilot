@@ -1,7 +1,10 @@
 import express from 'express';
+import path from 'path';
 import { asyncHandler, ApiError } from '../../middleware/error.middleware.js';
 import { validate, schemas } from '../../middleware/validation.middleware.js';
 import dockerService from '../../services/docker.service.js';
+import stackService from '../../services/stack.service.js';
+import config from '../../config/env.js';
 import logger from '../../utils/logger.js';
 
 const router = express.Router();
@@ -248,9 +251,44 @@ router.get('/:id/stream-update', asyncHandler(async (req, res) => {
     const wasUpdated = pullResult && pullResult.updated;
 
     if (wasUpdated) {
-      res.write(`data: ${JSON.stringify({ type: 'stdout', data: '\nNew image pulled. Restarting container...\n' })}\n\n`);
-      await dockerService.restartContainer(id);
-      res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'Container restarted successfully.\n' })}\n\n`);
+      // Check if container is part of a compose stack
+      const composeProject = container.labels['com.docker.compose.project'];
+      const composeService = container.labels['com.docker.compose.service'];
+      const composeWorkingDir = container.labels['com.docker.compose.project.working_dir'];
+
+      if (composeProject && composeService && composeWorkingDir) {
+        // Container is part of a compose stack - use docker compose to recreate
+        res.write(`data: ${JSON.stringify({ type: 'stdout', data: `\nRecreating container via docker compose (stack: ${composeProject})...\n` })}\n\n`);
+
+        // Use the compose working dir from labels, or fall back to stacks directory
+        let stackDir = composeWorkingDir;
+
+        // If the working dir isn't accessible (e.g., different path inside container),
+        // try to find it in the stacks directory
+        const stackPath = path.join(config.stacks.directory, composeProject);
+        try {
+          const fs = await import('fs/promises');
+          await fs.access(stackPath);
+          stackDir = stackPath;
+        } catch {
+          // Use the original working dir from labels
+        }
+
+        await stackService.streamComposeCommand(
+          stackDir,
+          'up',
+          ['-d', '--force-recreate', composeService],
+          (data, type) => {
+            res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+          }
+        );
+        res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'Container recreated successfully.\n' })}\n\n`);
+      } else {
+        // Standalone container - need to recreate manually
+        res.write(`data: ${JSON.stringify({ type: 'stdout', data: '\nRecreating standalone container...\n' })}\n\n`);
+        await dockerService.recreateContainer(id, imageName);
+        res.write(`data: ${JSON.stringify({ type: 'stdout', data: 'Container recreated successfully.\n' })}\n\n`);
+      }
 
       // Try to remove the old image if it's no longer used
       if (oldImageId) {

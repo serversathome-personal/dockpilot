@@ -461,12 +461,20 @@ router.get('/:name/stream-update', asyncHandler(async (req, res) => {
       }
     );
 
-    // Restart stack
-    res.write(`data: ${JSON.stringify({ type: 'stdout', data: '\n=== Restarting Stack ===\n' })}\n\n`);
+    // Recreate stack with new images (down then up)
+    res.write(`data: ${JSON.stringify({ type: 'stdout', data: '\n=== Recreating Stack ===\n' })}\n\n`);
     await stackService.streamComposeCommand(
       stackDir,
-      'restart',
+      'down',
       [],
+      (data, type) => {
+        res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+      }
+    );
+    await stackService.streamComposeCommand(
+      stackDir,
+      'up',
+      ['-d'],
       (data, type) => {
         res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
       }

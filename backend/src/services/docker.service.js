@@ -276,6 +276,94 @@ class DockerService {
   }
 
   /**
+   * Recreate a standalone container with a new image
+   * Preserves container configuration (name, ports, volumes, env, etc.)
+   * @param {string} id - Container ID or name
+   * @param {string} newImage - New image to use
+   * @returns {Promise<Object>} New container info
+   */
+  async recreateContainer(id, newImage) {
+    try {
+      const container = this.docker.getContainer(id);
+      const info = await container.inspect();
+
+      const oldName = info.Name.replace(/^\//, '');
+      const wasRunning = info.State.Running;
+
+      logger.info(`Recreating container ${oldName} with image ${newImage}`);
+
+      // Stop container if running
+      if (wasRunning) {
+        await container.stop();
+      }
+
+      // Remove old container
+      await container.remove();
+
+      // Create new container with same config but new image
+      const createOptions = {
+        name: oldName,
+        Image: newImage,
+        Cmd: info.Config.Cmd,
+        Entrypoint: info.Config.Entrypoint,
+        Env: info.Config.Env,
+        Labels: info.Config.Labels,
+        ExposedPorts: info.Config.ExposedPorts,
+        WorkingDir: info.Config.WorkingDir,
+        User: info.Config.User,
+        Hostname: info.Config.Hostname,
+        Domainname: info.Config.Domainname,
+        Tty: info.Config.Tty,
+        OpenStdin: info.Config.OpenStdin,
+        StdinOnce: info.Config.StdinOnce,
+        HostConfig: {
+          Binds: info.HostConfig.Binds,
+          PortBindings: info.HostConfig.PortBindings,
+          RestartPolicy: info.HostConfig.RestartPolicy,
+          NetworkMode: info.HostConfig.NetworkMode,
+          Privileged: info.HostConfig.Privileged,
+          CapAdd: info.HostConfig.CapAdd,
+          CapDrop: info.HostConfig.CapDrop,
+          Dns: info.HostConfig.Dns,
+          DnsSearch: info.HostConfig.DnsSearch,
+          ExtraHosts: info.HostConfig.ExtraHosts,
+          VolumesFrom: info.HostConfig.VolumesFrom,
+          Devices: info.HostConfig.Devices,
+          Memory: info.HostConfig.Memory,
+          MemorySwap: info.HostConfig.MemorySwap,
+          CpuShares: info.HostConfig.CpuShares,
+          CpuPeriod: info.HostConfig.CpuPeriod,
+          CpuQuota: info.HostConfig.CpuQuota,
+          LogConfig: info.HostConfig.LogConfig,
+          SecurityOpt: info.HostConfig.SecurityOpt,
+          Tmpfs: info.HostConfig.Tmpfs,
+          ShmSize: info.HostConfig.ShmSize,
+        },
+        NetworkingConfig: {
+          EndpointsConfig: info.NetworkSettings.Networks,
+        },
+      };
+
+      const newContainer = await this.docker.createContainer(createOptions);
+
+      // Start if it was running before
+      if (wasRunning) {
+        await newContainer.start();
+      }
+
+      logger.info(`Container ${oldName} recreated successfully`);
+
+      return {
+        id: newContainer.id,
+        name: oldName,
+      };
+    } catch (error) {
+      logger.error(`Failed to recreate container ${id}:`, error);
+      throw new Error(`Failed to recreate container ${id}: ${error.message}`);
+    }
+  }
+
+  /**
    * Pause a container
    * @param {string} id - Container ID or name
    * @returns {Promise<void>}
