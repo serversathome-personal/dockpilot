@@ -1112,8 +1112,14 @@ class UpdateService {
         const updates = await this.checkForUpdates();
 
         // Filter based on exclusions
+        // Always exclude DockPilot itself - it should only be updated via manual self-update
         const filteredUpdates = updates.filter(update => {
           const imageTag = `${update.repository}:${update.currentTag}`;
+          const isDockPilot = update.repository.toLowerCase().includes('dockpilot');
+          if (isDockPilot) {
+            logger.debug('Excluding DockPilot from scheduled update (use self-update instead)');
+            return false;
+          }
           return !schedule.excludedImages?.includes(imageTag);
         });
 
