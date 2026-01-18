@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   ChartBarIcon,
@@ -12,7 +12,6 @@ import {
   BellIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { dashboardAPI } from '../../api/dashboard.api';
 import { useStore } from '../../store';
 
 const navigation = [
@@ -28,7 +27,6 @@ const navigation = [
 ];
 
 export default function Sidebar() {
-  const [version, setVersion] = useState('...');
   const { sidebarOpen, setSidebarOpen } = useStore();
   const location = useLocation();
 
@@ -36,19 +34,6 @@ export default function Sidebar() {
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname, setSidebarOpen]);
-
-  useEffect(() => {
-    const fetchVersion = async () => {
-      try {
-        const response = await dashboardAPI.getVersion();
-        setVersion(response?.data?.version || '?.?.?');
-      } catch (error) {
-        console.error('Failed to fetch version:', error);
-        setVersion('?.?.?');
-      }
-    };
-    fetchVersion();
-  }, []);
 
   return (
     <>
@@ -91,7 +76,7 @@ export default function Sidebar() {
           </div>
 
           {/* Navigation */}
-          <nav className="mt-4 lg:mt-6 px-3 space-y-1 pb-20">
+          <nav className="mt-4 lg:mt-6 px-3 space-y-1">
             {navigation.map((item) => (
               <NavLink
                 key={item.name}
@@ -110,13 +95,6 @@ export default function Sidebar() {
               </NavLink>
             ))}
           </nav>
-
-          {/* Footer info */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-glass-border bg-glass-darker">
-            <div className="flex items-center justify-center text-xs text-slate-400">
-              <span>v{version}</span>
-            </div>
-          </div>
         </div>
       </div>
     </>
