@@ -25,8 +25,10 @@ import {
   DocumentTextIcon,
   CommandLineIcon,
   FunnelIcon,
+  FolderIcon,
 } from '@heroicons/react/24/outline';
 import ShellModal from './ShellModal';
+import FileBrowser from './FileBrowser';
 
 export default function ContainersView() {
   const navigate = useNavigate();
@@ -464,6 +466,18 @@ export default function ContainersView() {
             onClick={(e) => {
               e.stopPropagation();
               setSelectedContainer(container);
+              setActiveTab('files');
+              setShowDetailModal(true);
+            }}
+            className="text-amber-400 hover:text-amber-300 transition-colors"
+            title="Browse Files"
+          >
+            <FolderIcon className="h-5 w-5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedContainer(container);
               setShowDeleteModal(true);
             }}
             className="text-danger hover:text-danger-light transition-colors"
@@ -586,17 +600,18 @@ export default function ContainersView() {
       >
         <div className="space-y-4">
           {/* Tabs */}
-          <div className="flex space-x-4 border-b border-glass-border">
-            {['overview', 'logs', 'stats', 'inspect'].map((tab) => (
+          <div className="flex space-x-4 border-b border-glass-border overflow-x-auto">
+            {['overview', 'logs', 'files', 'stats', 'inspect'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 font-medium transition-colors border-b-2 ${
+                className={`px-4 py-2 font-medium transition-colors border-b-2 whitespace-nowrap ${
                   activeTab === tab
                     ? 'border-primary text-white'
                     : 'border-transparent text-slate-400 hover:text-white'
                 }`}
               >
+                {tab === 'files' && <FolderIcon className="h-4 w-4 inline mr-1" />}
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
@@ -771,6 +786,14 @@ export default function ContainersView() {
             {/* Logs Tab */}
             {activeTab === 'logs' && selectedContainer && (
               <ContainerLogs containerId={selectedContainer.id} />
+            )}
+
+            {/* Files Tab */}
+            {activeTab === 'files' && selectedContainer && (
+              <FileBrowser
+                containerId={selectedContainer.id}
+                containerName={selectedContainer.name}
+              />
             )}
 
             {/* Stats Tab */}

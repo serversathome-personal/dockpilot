@@ -25,6 +25,19 @@ import {
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
+import DeployProgress, { detectDeployPhase } from './DeployProgress';
+
+// Color palette for containers in deployment logs
+const CONTAINER_COLORS = [
+  '#3b82f6', // blue
+  '#10b981', // green
+  '#f59e0b', // amber
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#84cc16', // lime
+];
 
 export default function StacksView() {
   const navigate = useNavigate();
@@ -45,6 +58,9 @@ export default function StacksView() {
   const [terminalLogs, setTerminalLogs] = useState('');
   const [terminalStackName, setTerminalStackName] = useState('');
   const [showingLogs, setShowingLogs] = useState(false);
+  const [deployPhase, setDeployPhase] = useState(null);
+  const [deployContainerLogs, setDeployContainerLogs] = useState([]);
+  const [deployContainerColors, setDeployContainerColors] = useState({});
   const terminalContentRef = useRef(null);
 
   // Create stack form
@@ -75,7 +91,21 @@ export default function StacksView() {
     if (terminalContentRef.current) {
       terminalContentRef.current.scrollTop = terminalContentRef.current.scrollHeight;
     }
-  }, [terminalOutput, terminalLogs]);
+  }, [terminalOutput, terminalLogs, deployContainerLogs]);
+
+  // Helper function to get container color
+  const getContainerColor = (containerId) => {
+    if (deployContainerColors[containerId]) {
+      return deployContainerColors[containerId];
+    }
+    const usedColors = Object.values(deployContainerColors);
+    const availableColors = CONTAINER_COLORS.filter(c => !usedColors.includes(c));
+    const color = availableColors.length > 0
+      ? availableColors[0]
+      : CONTAINER_COLORS[Object.keys(deployContainerColors).length % CONTAINER_COLORS.length];
+    setDeployContainerColors(prev => ({ ...prev, [containerId]: color }));
+    return color;
+  };
 
   // Auto-refresh logs when showing logs in terminal
   useEffect(() => {
@@ -242,36 +272,71 @@ export default function StacksView() {
       setTerminalLogs('');
       setTerminalStackName(stackName);
       setShowingLogs(false);
+      setDeployPhase(null);
+      setDeployContainerLogs([]);
+      setDeployContainerColors({});
       setTerminalTitle(`Deploying Stack: ${stackName}`);
       setShowTerminalModal(true);
 
-      // Connect to SSE endpoint for real-time output
+      // Connect to SSE endpoint for real-time output with combined deploy+logs
       const apiUrl = import.meta.env.DEV
-        ? `http://${window.location.hostname}:5000/api/stacks/${stackName}/stream-start`
-        : `/api/stacks/${stackName}/stream-start`;
+        ? `http://${window.location.hostname}:5000/api/stacks/${stackName}/stream-deploy`
+        : `/api/stacks/${stackName}/stream-deploy`;
       const eventSource = new EventSource(apiUrl);
 
       eventSource.onmessage = (event) => {
-        const { type, data } = JSON.parse(event.data);
+        const parsed = JSON.parse(event.data);
+        const { type, data, phase, containerId, containerName, stream } = parsed;
 
+        // Handle phase events
+        if (type === 'phase') {
+          setDeployPhase(phase);
+        }
+
+        // Handle stdout/stderr from compose commands
         if (type === 'stdout' || type === 'stderr') {
           setTerminalOutput((prev) => prev + data);
-        } else if (type === 'done') {
-          eventSource.close();
+          // Also detect phase from output
+          const detectedPhase = detectDeployPhase(data);
+          if (detectedPhase) {
+            setDeployPhase(detectedPhase);
+          }
+        }
+
+        // Handle container log events (from streaming logs after deploy)
+        if (type === 'log' && containerId && containerName) {
+          const color = getContainerColor(containerId);
+          setDeployContainerLogs((prev) => [
+            ...prev.slice(-500), // Keep last 500 log lines
+            {
+              id: `${containerId}-${Date.now()}-${Math.random()}`,
+              containerId,
+              containerName,
+              message: data,
+              stream: stream || 'stdout',
+              color,
+              timestamp: new Date(),
+            }
+          ]);
+          // Switch to logs display mode when we start receiving container logs
+          if (!showingLogs) {
+            setShowingLogs(true);
+            setDeployPhase('logs');
+          }
+        }
+
+        if (type === 'done') {
           addNotification({
             type: 'success',
             message: `Stack ${stackName} deployed successfully`
           });
           setLoading(false);
+          setDeployPhase('running');
           loadStacks();
+          // Note: don't close eventSource - it continues streaming logs
+        }
 
-          // Pre-load logs first, then switch display after 2 seconds
-          setTimeout(async () => {
-            await loadTerminalLogs();
-            setShowingLogs(true);
-            setTerminalOutput('');
-          }, 2000);
-        } else if (type === 'error') {
+        if (type === 'error') {
           eventSource.close();
           addNotification({
             type: 'error',
@@ -1658,11 +1723,21 @@ ANOTHER_KEY=another_value
           setTerminalLogs('');
           setTerminalStackName('');
           setShowingLogs(false);
+          setDeployPhase(null);
+          setDeployContainerLogs([]);
+          setDeployContainerColors({});
         }}
         title={terminalTitle}
         size="xl"
       >
         <div className="space-y-4">
+          {/* Deploy Progress Steps */}
+          {deployPhase && (
+            <div className="bg-glass-dark rounded-lg border border-glass-border">
+              <DeployProgress currentPhase={deployPhase} showLogs={showingLogs} />
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <p className="text-slate-300 text-sm">
               {showingLogs ? 'Container Logs:' : 'Docker Compose command output:'}
@@ -1672,17 +1747,62 @@ ANOTHER_KEY=another_value
             )}
           </div>
 
+          {/* Container Color Legend for Logs */}
+          {showingLogs && deployContainerLogs.length > 0 && Object.keys(deployContainerColors).length > 1 && (
+            <div className="flex flex-wrap items-center gap-4 bg-glass-dark px-3 py-2 rounded-lg border border-glass-border">
+              <span className="text-xs text-slate-400">Legend:</span>
+              {Object.entries(deployContainerColors).map(([containerId, color]) => {
+                const containerLog = deployContainerLogs.find(l => l.containerId === containerId);
+                const containerName = containerLog?.containerName || containerId.substring(0, 12);
+                return (
+                  <div key={containerId} className="flex items-center gap-1.5">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-xs text-slate-300">{containerName}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div
             ref={terminalContentRef}
-            className="bg-black/80 rounded-lg p-4 border border-slate-700 overflow-auto max-h-[500px]"
+            className="bg-black/80 rounded-lg p-4 border border-slate-700 overflow-auto max-h-[400px]"
           >
-            <pre className="text-xs font-mono whitespace-pre-wrap">
-              {showingLogs ? (
-                <span className="text-slate-300">{terminalLogs || 'Loading logs...'}</span>
-              ) : (
+            {showingLogs && deployContainerLogs.length > 0 ? (
+              <div className="space-y-0.5">
+                {deployContainerLogs.map((log) => (
+                  <div key={log.id} className="flex text-xs font-mono">
+                    {Object.keys(deployContainerColors).length > 1 && (
+                      <span
+                        className="flex-shrink-0 w-28 truncate mr-2 font-semibold"
+                        style={{ color: log.color }}
+                        title={log.containerName}
+                      >
+                        {log.containerName}
+                      </span>
+                    )}
+                    <span className="text-slate-500 flex-shrink-0 mr-2">
+                      {log.timestamp.toLocaleTimeString()}
+                    </span>
+                    <span className={`flex-shrink-0 w-6 mr-2 ${log.stream === 'stderr' ? 'text-amber-500' : 'text-slate-600'}`}>
+                      {log.stream === 'stderr' ? 'err' : 'out'}
+                    </span>
+                    <span className="text-slate-200 whitespace-pre-wrap break-all">
+                      {log.message}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : showingLogs ? (
+              <span className="text-slate-300 text-xs font-mono">{terminalLogs || 'Loading logs...'}</span>
+            ) : (
+              <pre className="text-xs font-mono whitespace-pre-wrap">
                 <span className="text-green-400">{terminalOutput || 'Initializing...'}</span>
-              )}
-            </pre>
+              </pre>
+            )}
           </div>
 
           <div className="flex justify-end pt-4">
@@ -1695,6 +1815,9 @@ ANOTHER_KEY=another_value
                 setTerminalLogs('');
                 setTerminalStackName('');
                 setShowingLogs(false);
+                setDeployPhase(null);
+                setDeployContainerLogs([]);
+                setDeployContainerColors({});
               }}
             >
               Close

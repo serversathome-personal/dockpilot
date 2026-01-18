@@ -509,4 +509,179 @@ router.get('/:name/stream-update', asyncHandler(async (req, res) => {
   }
 }));
 
+/**
+ * GET /api/stacks/:name/stream-deploy
+ * Deploy a stack with real-time output streaming (SSE)
+ * Streams compose pull/up output, then transitions to container logs
+ */
+router.get('/:name/stream-deploy', asyncHandler(async (req, res) => {
+  const { name } = req.params;
+  logger.info(`Streaming deploy for stack: ${name}`);
+
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  const stackDir = path.join(config.stacks.directory, name);
+  let currentPhase = 'pulling';
+  const logStreams = [];
+
+  // Helper to detect phase from compose output
+  const detectPhase = (data) => {
+    const lowerData = data.toLowerCase();
+    if (lowerData.includes('pulling') || lowerData.includes('pull complete') || lowerData.includes('downloading')) {
+      return 'pulling';
+    } else if (lowerData.includes('creating') || lowerData.includes('created')) {
+      return 'creating';
+    } else if (lowerData.includes('starting') || lowerData.includes('started')) {
+      return 'starting';
+    } else if (lowerData.includes('running')) {
+      return 'running';
+    }
+    return null;
+  };
+
+  // Helper to send phase event
+  const sendPhaseEvent = (phase, message) => {
+    if (phase !== currentPhase) {
+      currentPhase = phase;
+      res.write(`data: ${JSON.stringify({ type: 'phase', phase, message })}\n\n`);
+    }
+  };
+
+  // Handle client disconnect
+  const cleanup = () => {
+    logger.info(`Client disconnected from stream-deploy for stack: ${name}`);
+    // Close all log streams
+    logStreams.forEach(stream => {
+      if (stream && typeof stream.destroy === 'function') {
+        stream.destroy();
+      }
+    });
+  };
+
+  req.on('close', cleanup);
+  req.on('error', cleanup);
+
+  try {
+    // Send initial phase
+    sendPhaseEvent('pulling', 'Pulling images...');
+
+    // Pull images first
+    await stackService.streamComposeCommand(
+      stackDir,
+      'pull',
+      [],
+      (data, type) => {
+        // Detect and send phase changes
+        const detectedPhase = detectPhase(data);
+        if (detectedPhase) {
+          sendPhaseEvent(detectedPhase, `Phase: ${detectedPhase}`);
+        }
+        res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+      }
+    );
+
+    // Start stack (compose up)
+    sendPhaseEvent('creating', 'Creating containers...');
+    await stackService.streamComposeCommand(
+      stackDir,
+      'up',
+      ['-d'],
+      (data, type) => {
+        // Detect and send phase changes
+        const detectedPhase = detectPhase(data);
+        if (detectedPhase) {
+          sendPhaseEvent(detectedPhase, `Phase: ${detectedPhase}`);
+        }
+        res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
+      }
+    );
+
+    // Send notification (don't await to avoid blocking response)
+    notificationService.notifyStackStarted(name).catch(err => {
+      logger.error(`Failed to send stack started notification: ${err.message}`);
+    });
+
+    // Send done event for compose phase
+    res.write(`data: ${JSON.stringify({ type: 'done', data: 'Stack deployed successfully' })}\n\n`);
+
+    // Transition to logs phase
+    sendPhaseEvent('logs', 'Streaming container logs...');
+
+    // Get stack containers and start streaming their logs
+    const containers = await dockerService.getStackContainers(name);
+
+    if (containers.length === 0) {
+      logger.info(`No containers found for stack ${name}, ending stream`);
+      res.end();
+      return;
+    }
+
+    // Stream logs from all containers
+    for (const container of containers) {
+      const containerId = container.Id;
+      const containerName = container.Names[0]?.replace(/^\//, '') || containerId.substring(0, 12);
+
+      try {
+        const logStream = await dockerService.streamLogs(containerId, {
+          follow: true,
+          stdout: true,
+          stderr: true,
+          tail: 50, // Start with last 50 lines
+          timestamps: true,
+        });
+
+        logStreams.push(logStream);
+
+        logStream.on('data', (chunk) => {
+          const lines = chunk.toString().split('\n').filter(line => line.trim());
+          for (const line of lines) {
+            // Docker log stream has 8-byte header for multiplexed streams
+            // First byte indicates stream: 1 = stdout, 2 = stderr
+            let streamType = 'stdout';
+            let logData = line;
+
+            // Check if this looks like a multiplexed stream (binary header)
+            if (line.length > 8) {
+              const firstByte = line.charCodeAt(0);
+              if (firstByte === 1 || firstByte === 2) {
+                streamType = firstByte === 2 ? 'stderr' : 'stdout';
+                // Skip the 8-byte header
+                logData = line.substring(8);
+              }
+            }
+
+            res.write(`data: ${JSON.stringify({
+              type: 'log',
+              containerId,
+              containerName,
+              data: logData,
+              stream: streamType,
+            })}\n\n`);
+          }
+        });
+
+        logStream.on('error', (err) => {
+          logger.error(`Log stream error for container ${containerName}: ${err.message}`);
+        });
+
+        logStream.on('end', () => {
+          logger.debug(`Log stream ended for container ${containerName}`);
+        });
+      } catch (streamError) {
+        logger.error(`Failed to start log stream for container ${containerName}: ${streamError.message}`);
+      }
+    }
+
+    // Keep the connection open for log streaming
+    // The connection will be closed when the client disconnects
+  } catch (error) {
+    logger.error(`Failed to deploy stack ${name}:`, error);
+    res.write(`data: ${JSON.stringify({ type: 'error', data: error.message })}\n\n`);
+    res.end();
+  }
+}));
+
 export default router;

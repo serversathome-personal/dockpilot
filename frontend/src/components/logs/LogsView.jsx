@@ -535,6 +535,24 @@ export default function LogsView() {
         </div>
       )}
 
+      {/* Color Legend - shown when multiple containers selected and logs are present */}
+      {selectedContainers.length > 1 && filteredLogs.length > 0 && (
+        <div className="px-3 py-2 bg-glass-dark border border-glass-border rounded-lg">
+          <div className="flex flex-wrap items-center gap-4">
+            <span className="text-xs text-slate-400 font-medium">Legend:</span>
+            {selectedContainers.map(container => (
+              <div key={container.id} className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: getContainerColor(container.id) }}
+                />
+                <span className="text-sm text-slate-300">{container.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Click outside to close picker */}
       {showContainerPicker && (
         <div

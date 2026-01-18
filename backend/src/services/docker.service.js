@@ -1214,6 +1214,295 @@ class DockerService {
       throw new Error('Failed to stream Docker events');
     }
   }
+
+  /**
+   * Stream logs from multiple containers simultaneously
+   * @param {Array<string>} containerIds - Array of container IDs
+   * @param {Function} onLog - Callback for each log line (containerId, containerName, data, stream)
+   * @param {Object} options - Log options
+   * @returns {Promise<Array>} Array of stream references for cleanup
+   */
+  async streamMultiContainerLogs(containerIds, onLog, options = {}) {
+    const streams = [];
+
+    for (const containerId of containerIds) {
+      try {
+        const container = this.docker.getContainer(containerId);
+        const info = await container.inspect();
+        const containerName = info.Name.replace(/^\//, '');
+
+        const stream = await container.logs({
+          follow: true,
+          stdout: true,
+          stderr: true,
+          tail: options.tail || 100,
+          timestamps: options.timestamps || false,
+        });
+
+        // Demux stdout and stderr from Docker stream
+        stream.on('data', (chunk) => {
+          // Docker multiplexes stdout/stderr with an 8-byte header
+          // Header: [STREAM_TYPE, 0, 0, 0, SIZE1, SIZE2, SIZE3, SIZE4]
+          // STREAM_TYPE: 0=stdin, 1=stdout, 2=stderr
+          let offset = 0;
+          while (offset < chunk.length) {
+            if (offset + 8 > chunk.length) break;
+
+            const streamType = chunk[offset];
+            const size = chunk.readUInt32BE(offset + 4);
+
+            if (offset + 8 + size > chunk.length) break;
+
+            const data = chunk.slice(offset + 8, offset + 8 + size).toString('utf8');
+            const streamName = streamType === 2 ? 'stderr' : 'stdout';
+
+            onLog(containerId, containerName, data, streamName);
+            offset += 8 + size;
+          }
+        });
+
+        stream.on('error', (err) => {
+          logger.warn(`Log stream error for container ${containerId}:`, err.message);
+        });
+
+        streams.push({ containerId, containerName, stream });
+      } catch (error) {
+        logger.warn(`Failed to stream logs for container ${containerId}:`, error.message);
+      }
+    }
+
+    return streams;
+  }
+
+  /**
+   * List directory contents inside a container
+   * @param {string} containerId - Container ID or name
+   * @param {string} path - Directory path to list
+   * @returns {Promise<Array>} Array of file/directory entries
+   */
+  async listContainerFiles(containerId, path = '/') {
+    try {
+      const container = this.docker.getContainer(containerId);
+
+      // Create exec instance to run ls command
+      const exec = await container.exec({
+        Cmd: ['ls', '-la', '--time-style=long-iso', path],
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+
+      const stream = await exec.start({ hijack: true, stdin: false });
+
+      return new Promise((resolve, reject) => {
+        let stdout = '';
+        let stderr = '';
+
+        stream.on('data', (chunk) => {
+          // Docker multiplexes stdout/stderr
+          let offset = 0;
+          while (offset < chunk.length) {
+            if (offset + 8 > chunk.length) break;
+
+            const streamType = chunk[offset];
+            const size = chunk.readUInt32BE(offset + 4);
+
+            if (offset + 8 + size > chunk.length) break;
+
+            const data = chunk.slice(offset + 8, offset + 8 + size).toString('utf8');
+            if (streamType === 2) {
+              stderr += data;
+            } else {
+              stdout += data;
+            }
+            offset += 8 + size;
+          }
+        });
+
+        stream.on('end', () => {
+          if (stderr && stderr.includes('No such file or directory')) {
+            resolve([]);
+            return;
+          }
+
+          const lines = stdout.trim().split('\n');
+          const files = [];
+
+          for (const line of lines) {
+            // Skip total line and empty lines
+            if (line.startsWith('total ') || !line.trim()) continue;
+
+            // Parse ls -la output
+            // Format: permissions links owner group size date time name
+            const parts = line.split(/\s+/);
+            if (parts.length < 8) continue;
+
+            const permissions = parts[0];
+            const size = parseInt(parts[4], 10) || 0;
+            const dateStr = parts[5];
+            const timeStr = parts[6];
+            const name = parts.slice(7).join(' ');
+
+            // Skip . and .. entries
+            if (name === '.' || name === '..') continue;
+
+            // Determine file type from permissions
+            let type = 'file';
+            if (permissions.startsWith('d')) {
+              type = 'directory';
+            } else if (permissions.startsWith('l')) {
+              type = 'link';
+            }
+
+            files.push({
+              name: name.split(' -> ')[0], // Handle symlinks showing target
+              type,
+              size,
+              modified: `${dateStr} ${timeStr}`,
+              permissions,
+            });
+          }
+
+          resolve(files);
+        });
+
+        stream.on('error', (err) => {
+          logger.error(`Failed to list files in container ${containerId}:`, err);
+          reject(new Error(`Failed to list files: ${err.message}`));
+        });
+      });
+    } catch (error) {
+      logger.error(`Failed to list files in container ${containerId}:`, error);
+      if (error.statusCode === 404) {
+        throw new Error('Container not found');
+      }
+      throw new Error(`Failed to list files: ${error.message}`);
+    }
+  }
+
+  /**
+   * Read file content from inside a container
+   * @param {string} containerId - Container ID or name
+   * @param {string} path - File path to read
+   * @param {number} maxSize - Maximum bytes to read (default 100000)
+   * @returns {Promise<Object>} Object with content and truncated flag
+   */
+  async readContainerFile(containerId, path, maxSize = 100000) {
+    try {
+      const container = this.docker.getContainer(containerId);
+
+      // Create exec instance to run head command
+      const exec = await container.exec({
+        Cmd: ['head', '-c', String(maxSize), path],
+        AttachStdout: true,
+        AttachStderr: true,
+      });
+
+      const stream = await exec.start({ hijack: true, stdin: false });
+
+      return new Promise((resolve, reject) => {
+        let stdout = '';
+        let stderr = '';
+
+        stream.on('data', (chunk) => {
+          // Docker multiplexes stdout/stderr
+          let offset = 0;
+          while (offset < chunk.length) {
+            if (offset + 8 > chunk.length) break;
+
+            const streamType = chunk[offset];
+            const size = chunk.readUInt32BE(offset + 4);
+
+            if (offset + 8 + size > chunk.length) break;
+
+            const data = chunk.slice(offset + 8, offset + 8 + size).toString('utf8');
+            if (streamType === 2) {
+              stderr += data;
+            } else {
+              stdout += data;
+            }
+            offset += 8 + size;
+          }
+        });
+
+        stream.on('end', async () => {
+          if (stderr && (stderr.includes('No such file') || stderr.includes('Is a directory'))) {
+            reject(new Error(stderr.trim()));
+            return;
+          }
+
+          // Check if file was truncated by getting file size
+          let truncated = false;
+          try {
+            const statExec = await container.exec({
+              Cmd: ['stat', '-c', '%s', path],
+              AttachStdout: true,
+              AttachStderr: true,
+            });
+            const statStream = await statExec.start({ hijack: true, stdin: false });
+
+            const fileSize = await new Promise((res) => {
+              let output = '';
+              statStream.on('data', (chunk) => {
+                let offset = 0;
+                while (offset < chunk.length) {
+                  if (offset + 8 > chunk.length) break;
+                  const size = chunk.readUInt32BE(offset + 4);
+                  if (offset + 8 + size > chunk.length) break;
+                  if (chunk[offset] !== 2) {
+                    output += chunk.slice(offset + 8, offset + 8 + size).toString('utf8');
+                  }
+                  offset += 8 + size;
+                }
+              });
+              statStream.on('end', () => res(parseInt(output.trim(), 10) || 0));
+              statStream.on('error', () => res(0));
+            });
+
+            truncated = fileSize > maxSize;
+          } catch (e) {
+            // Ignore stat errors
+          }
+
+          resolve({
+            content: stdout,
+            truncated,
+          });
+        });
+
+        stream.on('error', (err) => {
+          logger.error(`Failed to read file in container ${containerId}:`, err);
+          reject(new Error(`Failed to read file: ${err.message}`));
+        });
+      });
+    } catch (error) {
+      logger.error(`Failed to read file in container ${containerId}:`, error);
+      if (error.statusCode === 404) {
+        throw new Error('Container not found');
+      }
+      throw new Error(`Failed to read file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get file or directory as tar archive from container
+   * @param {string} containerId - Container ID or name
+   * @param {string} path - File or directory path
+   * @returns {Promise<Stream>} Tar archive stream for downloading
+   */
+  async getContainerFileArchive(containerId, path) {
+    try {
+      const container = this.docker.getContainer(containerId);
+      const archive = await container.getArchive({ path });
+
+      return archive;
+    } catch (error) {
+      logger.error(`Failed to get archive from container ${containerId}:`, error);
+      if (error.statusCode === 404) {
+        throw new Error('Container or path not found');
+      }
+      throw new Error(`Failed to get archive: ${error.message}`);
+    }
+  }
 }
 
 // Export singleton instance

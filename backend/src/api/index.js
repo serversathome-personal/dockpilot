@@ -2,6 +2,7 @@ import express from 'express';
 import dashboardRoutes from './routes/dashboard.js';
 import stacksRoutes from './routes/stacks.js';
 import containersRoutes from './routes/containers.js';
+import filesRoutes from './routes/files.js';
 import imagesRoutes from './routes/images.js';
 import networksRoutes from './routes/networks.js';
 import volumesRoutes from './routes/volumes.js';
@@ -25,6 +26,7 @@ router.get('/health', (req, res) => {
 router.use('/dashboard', dashboardRoutes);
 router.use('/stacks', stacksRoutes);
 router.use('/containers', containersRoutes);
+router.use('/containers', filesRoutes);
 router.use('/images', imagesRoutes);
 router.use('/networks', networksRoutes);
 router.use('/volumes', volumesRoutes);
