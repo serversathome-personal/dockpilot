@@ -49,14 +49,40 @@ class VersionService {
   }
 
   /**
+   * Get anonymous token from GHCR for public repository access
+   * @returns {Promise<string>} Bearer token
+   */
+  async getGhcrToken() {
+    const tokenUrl = 'https://ghcr.io/token?service=ghcr.io&scope=repository:serversathome-personal/dockpilot:pull';
+
+    const response = await fetch(tokenUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get GHCR token: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.token;
+  }
+
+  /**
    * Fetch available tags from GHCR
    * @returns {Promise<string[]>} Array of available tags
    */
   async fetchTags() {
     try {
+      // Get anonymous token first (required for GHCR API)
+      const token = await this.getGhcrToken();
+
       const response = await fetch(this.ghcrUrl, {
         headers: {
-          'Accept': 'application/json',
+          'Accept': 'application/vnd.docker.distribution.manifest.v2+json',
+          'Authorization': `Bearer ${token}`,
         },
         signal: AbortSignal.timeout(30000),
       });
