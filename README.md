@@ -22,6 +22,8 @@
 - Docker Compose support with inline editing
 - **Real-time YAML validation** with error, warning, and suggestion feedback
 - Real-time streaming output for all operations
+- **Visual deployment progress** with step indicators (Pulling → Creating → Starting → Running → Logs)
+- **Combined deploy + logs stream** - seamless transition from deployment to live container logs
 - Environment variable management with auto-extraction from compose files
 - Clone from Git repositories
 - Convert Docker run commands to compose files
@@ -32,8 +34,10 @@
 - Start, stop, restart, pause/unpause, remove
 - Update container images with streaming output
 - Real-time logs with auto-refresh
+- **Container file browser** - browse, preview, and download files from inside containers
 - Resource usage statistics
 - Port mapping with clickable links
+- Interactive shell access (exec into containers)
 
 ### 🖼️ Image Management
 - List all Docker images
@@ -65,6 +69,14 @@
 - Filter events by type
 - Color-coded actions (start, stop, create, destroy)
 - Live streaming mode with auto-refresh
+
+### 📜 Log Viewer
+- View logs from multiple containers simultaneously
+- **Color-coded merged logs** with distinct colors per container
+- **Visual color legend** when viewing multiple containers
+- Filter by stdout/stderr streams
+- Auto-scroll with pause on manual scroll
+- Timestamp display options
 
 ### 🔔 Push Notifications (Apprise)
 - Supports 80+ notification services (Discord, Slack, Telegram, Email, Pushover, etc.)
@@ -325,6 +337,7 @@ MIT License - see LICENSE file for details
 - Inspired by [Dockge](https://github.com/louislam/dockge) for file-based architecture
 - UI design inspired by [Portainer](https://github.com/portainer/portainer)
 - Docker run to compose conversion adapted from [ComposeToolbox](https://github.com/bluegoosemedia/composetoolbox) by Blue Goose Media
+- Deploy progress indicators and combined logs stream inspired by [Dockhand](https://github.com/dockhand/dockhand)
 
 ## 👥 Contributors
 
