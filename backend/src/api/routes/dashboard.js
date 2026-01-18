@@ -109,7 +109,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
         ...containerStats,
       });
     } catch (error) {
-      logger.warn(`Failed to get stats for container ${container.id}:`, error.message);
+      logger.warn(`Failed to get stats for container ${container.id}: ${error.message}`);
     }
   }
 
@@ -190,7 +190,7 @@ router.get('/version', asyncHandler(async (req, res) => {
       }),
     ]);
   } catch (error) {
-    logger.warn('Failed to get version info:', error.message);
+    logger.warn(`Failed to get version info: ${error.message}`);
   }
 
   res.json({

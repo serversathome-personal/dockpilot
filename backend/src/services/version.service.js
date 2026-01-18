@@ -94,7 +94,7 @@ class VersionService {
       const data = await response.json();
       return data.tags || [];
     } catch (error) {
-      logger.error('Failed to fetch tags from GHCR:', error.message);
+      logger.error(`Failed to fetch tags from GHCR: ${error.message}`);
       throw error;
     }
   }
@@ -151,7 +151,7 @@ class VersionService {
         latestVersion: latestVersion.raw,
       };
     } catch (error) {
-      logger.error('Version check failed:', error.message);
+      logger.error(`Version check failed: ${error.message}`);
       return {
         hasUpdate: false,
         error: error.message,
@@ -195,7 +195,7 @@ class VersionService {
 
       return { ...result, notified: true };
     } catch (error) {
-      logger.error('Failed to send update notification:', error.message);
+      logger.error(`Failed to send update notification: ${error.message}`);
       return { ...result, notifyError: error.message };
     }
   }
@@ -248,7 +248,7 @@ class VersionService {
         containerName: dockpilotContainer.Names[0]?.replace(/^\//, ''),
       };
     } catch (error) {
-      logger.error('Failed to get compose info:', error.message);
+      logger.error(`Failed to get compose info: ${error.message}`);
       return null;
     }
   }

@@ -179,7 +179,7 @@ class DockerService {
           totalMemoryUsage += stats.memory.usage;
           totalMemoryLimit += stats.memory.limit;
         } catch (error) {
-          logger.warn(`Failed to get stats for container ${container.id}:`, error.message);
+          logger.warn(`Failed to get stats for container ${container.id}: ${error.message}`);
         }
       }
 
@@ -855,7 +855,7 @@ class DockerService {
           };
         }
       } catch (dfError) {
-        logger.warn('Failed to get disk usage:', dfError.message);
+        logger.warn(`Failed to get disk usage: ${dfError.message}`);
       }
 
       // Get IP addresses - only host IP, not Docker networks
@@ -1262,12 +1262,12 @@ class DockerService {
         });
 
         stream.on('error', (err) => {
-          logger.warn(`Log stream error for container ${containerId}:`, err.message);
+          logger.warn(`Log stream error for container ${containerId}: ${err.message}`);
         });
 
         streams.push({ containerId, containerName, stream });
       } catch (error) {
-        logger.warn(`Failed to stream logs for container ${containerId}:`, error.message);
+        logger.warn(`Failed to stream logs for container ${containerId}: ${error.message}`);
       }
     }
 

@@ -13,6 +13,7 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
   CheckIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline';
 
 // Color palette for different containers
@@ -322,6 +323,29 @@ export default function LogsView() {
     setLogs([]);
   };
 
+  // Copy logs to clipboard
+  const copyLogs = async () => {
+    const logText = filteredLogs.map(log => {
+      const time = new Date(log.timestamp).toLocaleTimeString();
+      const container = selectedContainers.length > 1 ? `[${log.containerName}] ` : '';
+      const stream = log.stream === 'stderr' ? '[err] ' : '';
+      return `${time} ${container}${stream}${log.message}`;
+    }).join('\n');
+
+    try {
+      await navigator.clipboard.writeText(logText);
+      addNotification({
+        type: 'success',
+        message: `Copied ${filteredLogs.length} log lines to clipboard`,
+      });
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        message: 'Failed to copy logs to clipboard',
+      });
+    }
+  };
+
   // Toggle streaming
   const toggleStreaming = () => {
     setIsStreaming(prev => !prev);
@@ -391,6 +415,10 @@ export default function LogsView() {
           <Button variant="secondary" onClick={clearLogs}>
             <TrashIcon className="h-4 w-4" />
             <span className="hidden sm:inline ml-2">Clear</span>
+          </Button>
+          <Button variant="secondary" onClick={copyLogs} disabled={filteredLogs.length === 0}>
+            <ClipboardDocumentIcon className="h-4 w-4" />
+            <span className="hidden sm:inline ml-2">Copy</span>
           </Button>
           <Button variant="secondary" onClick={loadContainers}>
             <ArrowPathIcon className="h-4 w-4" />
