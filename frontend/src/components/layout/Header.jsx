@@ -16,6 +16,10 @@ export default function Header() {
     const fetchVersion = async () => {
       try {
         const response = await dashboardAPI.getVersion();
+        console.log('Version check response:', response.data);
+        if (response.data.error) {
+          console.warn('Version check error:', response.data.error);
+        }
         setVersionInfo(response.data);
       } catch (error) {
         console.error('Failed to fetch version info:', error);

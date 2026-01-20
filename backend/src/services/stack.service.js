@@ -546,8 +546,8 @@ class StackService {
       // Create stack directory
       await fs.ensureDir(stackDir);
 
-      // Write compose file
-      const composeFile = path.join(stackDir, 'docker-compose.yml');
+      // Write compose file (using modern naming convention)
+      const composeFile = path.join(stackDir, 'compose.yaml');
       await fs.writeFile(composeFile, composeContent, 'utf8');
 
       // Write env file if variables provided
