@@ -72,30 +72,60 @@ class VersionService {
   }
 
   /**
-   * Fetch available tags from GHCR
+   * Parse Link header for pagination
+   * @param {string} linkHeader - Link header value
+   * @returns {string|null} Next page URL or null
+   */
+  parseNextLink(linkHeader) {
+    if (!linkHeader) return null;
+
+    // Format: </v2/repo/tags/list?n=100&last=tag>; rel="next"
+    const match = linkHeader.match(/<([^>]+)>;\s*rel="next"/);
+    if (match) {
+      // Return full URL
+      return `https://ghcr.io${match[1]}`;
+    }
+    return null;
+  }
+
+  /**
+   * Fetch available tags from GHCR with pagination support
    * @returns {Promise<string[]>} Array of available tags
    */
   async fetchTags() {
     try {
       // Get anonymous token first (required for GHCR API)
       const token = await this.getGhcrToken();
+      const allTags = [];
+      let url = this.ghcrUrl;
+      let pageCount = 0;
+      const maxPages = 10; // Safety limit to prevent infinite loops
 
-      const response = await fetch(this.ghcrUrl, {
-        headers: {
-          'Accept': 'application/vnd.docker.distribution.manifest.v2+json',
-          'Authorization': `Bearer ${token}`,
-        },
-        signal: AbortSignal.timeout(30000),
-      });
+      while (url && pageCount < maxPages) {
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/vnd.docker.distribution.manifest.v2+json',
+            'Authorization': `Bearer ${token}`,
+          },
+          signal: AbortSignal.timeout(30000),
+        });
 
-      if (!response.ok) {
-        throw new Error(`GHCR API returned ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`GHCR API returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        const tags = data.tags || [];
+        allTags.push(...tags);
+
+        // Check for pagination
+        const linkHeader = response.headers.get('Link');
+        url = this.parseNextLink(linkHeader);
+        pageCount++;
       }
 
-      const data = await response.json();
-      const tags = data.tags || [];
-      logger.debug(`Fetched ${tags.length} tags from GHCR: ${tags.slice(0, 10).join(', ')}${tags.length > 10 ? '...' : ''}`);
-      return tags;
+      logger.debug(`Fetched ${allTags.length} tags from GHCR (${pageCount} page(s)): ${allTags.slice(-10).join(', ')}`);
+      return allTags;
     } catch (error) {
       logger.error(`Failed to fetch tags from GHCR: ${error.message}`);
       throw error;
