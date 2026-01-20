@@ -11,7 +11,7 @@ export default function Header() {
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const notificationRef = useRef(null);
 
-  // Fetch version info on mount
+  // Fetch version info on mount and periodically
   useEffect(() => {
     const fetchVersion = async () => {
       try {
@@ -22,10 +22,19 @@ export default function Header() {
       }
     };
 
+    // Fetch immediately on mount
     fetchVersion();
-    // Check for updates every 30 minutes
-    const interval = setInterval(fetchVersion, 30 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    // Check again after 10 seconds (in case initial check failed)
+    const initialRetry = setTimeout(fetchVersion, 10000);
+
+    // Then check every 5 minutes
+    const interval = setInterval(fetchVersion, 5 * 60 * 1000);
+
+    return () => {
+      clearTimeout(initialRetry);
+      clearInterval(interval);
+    };
   }, []);
 
   // Handle self-update
