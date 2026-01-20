@@ -610,19 +610,30 @@ router.get('/:name/stream-deploy', asyncHandler(async (req, res) => {
     // Transition to logs phase
     sendPhaseEvent('logs', 'Streaming container logs...');
 
-    // Get stack containers and start streaming their logs
-    const containers = await dockerService.getStackContainers(name);
+    // Wait briefly for containers to initialize before streaming logs
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Get stack containers with retry logic
+    let containers = await dockerService.getStackContainers(name);
+
+    // Retry once if no containers found (timing issue)
+    if (containers.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      containers = await dockerService.getStackContainers(name);
+    }
 
     if (containers.length === 0) {
       logger.info(`No containers found for stack ${name}, ending stream`);
+      res.write(`data: ${JSON.stringify({ type: 'info', data: 'No containers found for log streaming' })}\n\n`);
       res.end();
       return;
     }
 
     // Stream logs from all containers
+    // Note: getStackContainers returns transformed objects with lowercase properties
     for (const container of containers) {
-      const containerId = container.Id;
-      const containerName = container.Names?.[0]?.replace(/^\//, '') || containerId.substring(0, 12);
+      const containerId = container.id;
+      const containerName = container.name || containerId?.substring(0, 12) || 'unknown';
 
       try {
         const logStream = await dockerService.streamLogs(containerId, {

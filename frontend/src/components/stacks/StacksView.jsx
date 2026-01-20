@@ -25,6 +25,8 @@ import {
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
+import { indentUnit } from '@codemirror/language';
+import { EditorState } from '@codemirror/state';
 import DeployProgress, { detectDeployPhase } from './DeployProgress';
 
 // Color palette for containers in deployment logs
@@ -343,6 +345,13 @@ export default function StacksView() {
             message: data
           });
           setLoading(false);
+        }
+
+        // Handle info messages (e.g., no containers found)
+        if (type === 'info') {
+          setTerminalOutput((prev) => prev + '\n' + data + '\n');
+          setShowingLogs(true);
+          setDeployPhase('logs');
         }
       };
 
@@ -1084,16 +1093,19 @@ export default function StacksView() {
             <CodeMirror
               value={newStackCompose}
               onChange={(value) => setNewStackCompose(value)}
-              extensions={[yaml()]}
+              extensions={[
+                yaml(),
+                indentUnit.of('  '),
+                EditorState.tabSize.of(2),
+              ]}
               theme={oneDark}
               basicSetup={{
                 lineNumbers: true,
                 highlightActiveLineGutter: true,
                 highlightActiveLine: true,
                 foldGutter: true,
-                indentOnInput: false,
+                indentOnInput: true,
               }}
-              indentWithTab={false}
               style={{
                 fontSize: '14px',
                 borderRadius: '8px',
@@ -1146,11 +1158,16 @@ services:
             <CodeMirror
               value={newStackEnvVars}
               onChange={(value) => setNewStackEnvVars(value)}
+              extensions={[
+                indentUnit.of('  '),
+                EditorState.tabSize.of(2),
+              ]}
               theme={oneDark}
               basicSetup={{
                 lineNumbers: true,
                 highlightActiveLineGutter: true,
                 highlightActiveLine: true,
+                indentOnInput: true,
               }}
               style={{
                 fontSize: '14px',
@@ -1498,7 +1515,11 @@ KEY2=value2
                   <CodeMirror
                     value={composeContent}
                     onChange={(value) => setComposeContent(value)}
-                    extensions={[yaml()]}
+                    extensions={[
+                      yaml(),
+                      indentUnit.of('  '),
+                      EditorState.tabSize.of(2),
+                    ]}
                     theme={oneDark}
                     editable={isEditing}
                     basicSetup={{
@@ -1506,6 +1527,7 @@ KEY2=value2
                       highlightActiveLineGutter: true,
                       highlightActiveLine: true,
                       foldGutter: true,
+                      indentOnInput: true,
                     }}
                     style={{
                       fontSize: '14px',
@@ -1621,12 +1643,17 @@ KEY2=value2
                   <CodeMirror
                     value={envVarsText}
                     onChange={(value) => setEnvVarsText(value)}
+                    extensions={[
+                      indentUnit.of('  '),
+                      EditorState.tabSize.of(2),
+                    ]}
                     theme={oneDark}
                     editable={isEditing}
                     basicSetup={{
                       lineNumbers: true,
                       highlightActiveLineGutter: true,
                       highlightActiveLine: true,
+                      indentOnInput: true,
                     }}
                     style={{
                       fontSize: '14px',
