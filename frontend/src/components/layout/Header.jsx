@@ -13,16 +13,19 @@ export default function Header() {
 
   // Fetch version info on mount and periodically
   useEffect(() => {
+    console.log('[DockPilot] Starting version check...');
+
     const fetchVersion = async () => {
+      console.log('[DockPilot] Fetching version info...');
       try {
         const response = await dashboardAPI.getVersion();
-        console.log('Version check response:', response.data);
+        console.log('[DockPilot] Version check response:', response.data);
         if (response.data.error) {
-          console.warn('Version check error:', response.data.error);
+          console.warn('[DockPilot] Version check error:', response.data.error);
         }
         setVersionInfo(response.data);
       } catch (error) {
-        console.error('Failed to fetch version info:', error);
+        console.error('[DockPilot] Failed to fetch version info:', error);
       }
     };
 
