@@ -171,8 +171,8 @@ export default function Header() {
 
           {/* Update Confirmation Modal */}
           {showUpdateConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-              <div className="bg-glass-dark border border-glass-border rounded-lg p-6 max-w-md mx-4 shadow-glass-lg">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+              <div className="bg-glass-dark border border-glass-border rounded-lg p-6 max-w-md w-full shadow-glass-lg">
                 <h3 className="text-lg font-semibold text-white mb-2">Update DockPilot?</h3>
                 <p className="text-sm text-slate-300 mb-4">
                   This will update DockPilot from v{versionInfo.version} to v{versionInfo.latestVersion}.
