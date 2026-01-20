@@ -622,7 +622,7 @@ router.get('/:name/stream-deploy', asyncHandler(async (req, res) => {
     // Stream logs from all containers
     for (const container of containers) {
       const containerId = container.Id;
-      const containerName = container.Names[0]?.replace(/^\//, '') || containerId.substring(0, 12);
+      const containerName = container.Names?.[0]?.replace(/^\//, '') || containerId.substring(0, 12);
 
       try {
         const logStream = await dockerService.streamLogs(containerId, {

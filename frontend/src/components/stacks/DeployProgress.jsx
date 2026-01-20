@@ -52,7 +52,7 @@ export default function DeployProgress({ currentPhase, showLogs = false }) {
   const currentIndex = DEPLOY_PHASES.findIndex(p => p.id === activePhase);
 
   return (
-    <div className="flex items-center justify-between w-full py-3 px-2">
+    <div className="flex items-center w-full py-3 px-4">
       {DEPLOY_PHASES.map((phase, index) => {
         const Icon = phase.icon;
         const isComplete = index < currentIndex;
@@ -60,9 +60,9 @@ export default function DeployProgress({ currentPhase, showLogs = false }) {
         const isPending = index > currentIndex;
 
         return (
-          <div key={phase.id} className="flex items-center flex-1">
+          <div key={phase.id} className="flex items-center flex-1 last:flex-none">
             {/* Step circle and icon */}
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center min-w-[60px]">
               <div
                 className={`
                   relative flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300
@@ -86,7 +86,7 @@ export default function DeployProgress({ currentPhase, showLogs = false }) {
               {/* Label */}
               <span
                 className={`
-                  mt-2 text-xs font-medium transition-colors
+                  mt-2 text-xs font-medium transition-colors text-center
                   ${isComplete ? 'text-success' : ''}
                   ${isCurrent ? 'text-primary' : ''}
                   ${isPending ? 'text-slate-500' : ''}
@@ -100,7 +100,7 @@ export default function DeployProgress({ currentPhase, showLogs = false }) {
             {index < DEPLOY_PHASES.length - 1 && (
               <div
                 className={`
-                  flex-1 h-0.5 mx-2 transition-colors duration-300
+                  flex-1 h-0.5 mx-1 transition-colors duration-300
                   ${index < currentIndex ? 'bg-success' : 'bg-slate-700'}
                 `}
               />
