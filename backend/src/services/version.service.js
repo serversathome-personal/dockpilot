@@ -286,10 +286,11 @@ class VersionService {
     logger.info('Initiating DockPilot self-update', { workingDir, projectName });
 
     try {
-      // First, ensure the docker:cli image is available
-      logger.debug('Pulling docker:cli image for updater container');
+      // Use docker image with compose plugin installed
+      const updateImage = 'docker:latest';
+      logger.debug(`Pulling ${updateImage} image for updater container`);
       await new Promise((resolve, reject) => {
-        this.docker.pull('docker:cli', (err, stream) => {
+        this.docker.pull(updateImage, (err, stream) => {
           if (err) return reject(err);
           this.docker.modem.followProgress(stream, (err) => {
             if (err) return reject(err);
@@ -298,20 +299,26 @@ class VersionService {
         });
       });
 
-      // Build the compose command
-      // Use project name if available for more precise targeting
-      const composeCmd = projectName
-        ? `docker compose -p ${projectName} pull && docker compose -p ${projectName} up -d --force-recreate`
-        : 'docker compose pull && docker compose up -d --force-recreate';
+      // Build the update script
+      // Install docker-compose standalone, then run the update
+      const composeArgs = projectName ? `-p ${projectName}` : '';
+      const updateScript = `
+        sleep 3
+        echo "Installing docker-compose..."
+        apk add --no-cache docker-compose > /dev/null 2>&1 || apk add --no-cache docker-cli-compose > /dev/null 2>&1 || true
+        cd /compose
+        echo "Pulling new image..."
+        docker-compose ${composeArgs} pull
+        echo "Recreating container..."
+        docker-compose ${composeArgs} up -d --force-recreate
+        echo "Update complete"
+      `.trim();
 
       // Create and start the updater container
       // The sleep gives time for the API response to be sent before DockPilot restarts
       const container = await this.docker.createContainer({
-        Image: 'docker:cli',
-        Cmd: [
-          'sh', '-c',
-          `sleep 3 && cd /compose && ${composeCmd}`
-        ],
+        Image: updateImage,
+        Cmd: ['sh', '-c', updateScript],
         HostConfig: {
           Binds: [
             '/var/run/docker.sock:/var/run/docker.sock',

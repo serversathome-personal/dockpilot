@@ -297,12 +297,6 @@ class StackService {
         throw new Error(`Invalid YAML syntax: ${error.message}`);
       }
 
-      // Backup existing file
-      const backupFile = `${composeFile}.backup`;
-      if (await fs.pathExists(composeFile)) {
-        await fs.copy(composeFile, backupFile);
-      }
-
       // Write new content (preserve original filename)
       await fs.writeFile(composeFile, content, 'utf8');
       logger.info(`Updated compose file for stack ${stackName}`);
@@ -354,12 +348,6 @@ class StackService {
   async updateEnvVars(stackName, envVars) {
     try {
       const envFile = path.join(this.stacksDir, stackName, '.env');
-
-      // Backup existing file
-      const backupFile = `${envFile}.backup`;
-      if (await fs.pathExists(envFile)) {
-        await fs.copy(envFile, backupFile);
-      }
 
       // Convert object to .env format
       const lines = Object.entries(envVars).map(([key, value]) => `${key}=${value}`);
