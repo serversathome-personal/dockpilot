@@ -17,6 +17,7 @@ import {
   ArrowPathIcon,
   TrashIcon,
   DocumentTextIcon,
+  CloudArrowDownIcon,
   Cog6ToothIcon,
   DocumentMagnifyingGlassIcon,
   ArrowUpCircleIcon,
@@ -998,7 +999,7 @@ export default function StacksView() {
             onClick={() => setShowGitCloneModal(true)}
             className="flex items-center"
           >
-            <DocumentTextIcon className="h-5 w-5 lg:mr-2" />
+            <CloudArrowDownIcon className="h-5 w-5 lg:mr-2" />
             <span className="hidden sm:inline">Clone</span>
           </Button>
           <Button variant="secondary" onClick={loadStacks}>
