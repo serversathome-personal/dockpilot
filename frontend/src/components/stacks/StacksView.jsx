@@ -1753,7 +1753,7 @@ ANOTHER_KEY=another_value
               <span className="text-xs text-slate-400">Legend:</span>
               {Object.entries(deployContainerColors).map(([containerId, color]) => {
                 const containerLog = deployContainerLogs.find(l => l.containerId === containerId);
-                const containerName = containerLog?.containerName || containerId.substring(0, 12);
+                const containerName = containerLog?.containerName || containerId?.substring(0, 12) || 'unknown';
                 return (
                   <div key={containerId} className="flex items-center gap-1.5">
                     <div
