@@ -333,22 +333,42 @@ class VersionService {
       });
 
       // Build the update script
-      // Install docker-compose standalone, then run the update
+      // Find the compose file and use docker compose v2
       const composeArgs = projectName ? `-p ${projectName}` : '';
       const updateScript = `
+        set -e
         sleep 3
-        echo "Installing docker-compose..."
-        apk add --no-cache docker-compose > /dev/null 2>&1 || apk add --no-cache docker-cli-compose > /dev/null 2>&1 || true
         cd /compose
+
+        # Find compose file
+        if [ -f "compose.yaml" ]; then
+          COMPOSE_FILE="compose.yaml"
+        elif [ -f "compose.yml" ]; then
+          COMPOSE_FILE="compose.yml"
+        elif [ -f "docker-compose.yaml" ]; then
+          COMPOSE_FILE="docker-compose.yaml"
+        elif [ -f "docker-compose.yml" ]; then
+          COMPOSE_FILE="docker-compose.yml"
+        else
+          echo "ERROR: No compose file found in /compose"
+          ls -la /compose
+          exit 1
+        fi
+
+        echo "Using compose file: $COMPOSE_FILE"
         echo "Pulling new image..."
-        docker-compose ${composeArgs} pull
+        docker compose -f "$COMPOSE_FILE" ${composeArgs} pull 2>&1 || { echo "Pull failed"; exit 1; }
         echo "Recreating container..."
-        docker-compose ${composeArgs} up -d --force-recreate
+        docker compose -f "$COMPOSE_FILE" ${composeArgs} up -d --force-recreate 2>&1 || { echo "Recreate failed"; exit 1; }
         echo "Update complete"
       `.trim();
 
       // Create and start the updater container
       // The sleep gives time for the API response to be sent before DockPilot restarts
+      // Don't auto-remove so we can check logs on failure
+      const containerName = `dockpilot-updater-${Date.now()}`;
+      logger.info(`Creating updater container: ${containerName}`);
+
       const container = await this.docker.createContainer({
         Image: updateImage,
         Cmd: ['sh', '-c', updateScript],
@@ -357,9 +377,9 @@ class VersionService {
             '/var/run/docker.sock:/var/run/docker.sock',
             `${workingDir}:/compose:ro`
           ],
-          AutoRemove: true,
+          AutoRemove: false,
         },
-        name: `dockpilot-updater-${Date.now()}`,
+        name: containerName,
       });
 
       await container.start();
