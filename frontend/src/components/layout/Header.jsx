@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store';
 import { dashboardAPI } from '../../api/dashboard.api';
-import { BellIcon, XMarkIcon, Bars3Icon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { BellIcon, XMarkIcon, Bars3Icon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import Modal from '../common/Modal';
+import Button from '../common/Button';
 
 export default function Header() {
   const { wsConnected, notifications, removeNotification, clearNotifications, toggleSidebar, addNotification } = useStore();
@@ -186,31 +188,46 @@ export default function Header() {
           )}
 
           {/* Update Confirmation Modal */}
-          {showUpdateConfirm && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
-                <h3 className="text-lg font-semibold text-white mb-3">Update DockPilot?</h3>
-                <p className="text-sm text-slate-300 mb-6">
-                  This will update DockPilot from v{versionInfo.version} to v{versionInfo.latestVersion}.
-                  There will be brief downtime while the container restarts.
-                </p>
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => setShowUpdateConfirm(false)}
-                    className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSelfUpdate}
-                    className="px-4 py-2 text-sm bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
-                  >
-                    Update Now
-                  </button>
+          <Modal
+            isOpen={showUpdateConfirm}
+            onClose={() => setShowUpdateConfirm(false)}
+            title="Update Available"
+            size="sm"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0 w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
+                  <ArrowDownTrayIcon className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-white font-medium">
+                    v{versionInfo?.version} → v{versionInfo?.latestVersion}
+                  </p>
+                  <p className="text-sm text-slate-400">New version available</p>
                 </div>
               </div>
+
+              <p className="text-sm text-slate-300">
+                This will update DockPilot to the latest version. There will be brief downtime while the container restarts.
+              </p>
+
+              <div className="flex justify-end space-x-3 pt-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowUpdateConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSelfUpdate}
+                  isLoading={isUpdating}
+                >
+                  {isUpdating ? 'Updating...' : 'Update Now'}
+                </Button>
+              </div>
             </div>
-          )}
+          </Modal>
 
           {/* GitHub Link */}
           <a
