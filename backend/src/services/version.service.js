@@ -375,7 +375,7 @@ class VersionService {
         HostConfig: {
           Binds: [
             '/var/run/docker.sock:/var/run/docker.sock',
-            `${workingDir}:/compose:ro`
+            `${workingDir}:/compose`
           ],
           AutoRemove: false,
         },
