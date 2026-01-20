@@ -187,23 +187,23 @@ export default function Header() {
 
           {/* Update Confirmation Modal */}
           {showUpdateConfirm && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-              <div className="bg-glass-dark border border-glass-border rounded-lg p-6 max-w-md w-full shadow-glass-lg">
-                <h3 className="text-lg font-semibold text-white mb-2">Update DockPilot?</h3>
-                <p className="text-sm text-slate-300 mb-4">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+              <div className="bg-slate-800 border border-slate-600 rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl">
+                <h3 className="text-lg font-semibold text-white mb-3">Update DockPilot?</h3>
+                <p className="text-sm text-slate-300 mb-6">
                   This will update DockPilot from v{versionInfo.version} to v{versionInfo.latestVersion}.
                   There will be brief downtime while the container restarts.
                 </p>
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowUpdateConfirm(false)}
-                    className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors"
+                    className="px-4 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSelfUpdate}
-                    className="px-4 py-2 text-sm bg-primary hover:bg-primary-dark text-white rounded transition-colors"
+                    className="px-4 py-2 text-sm bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
                   >
                     Update Now
                   </button>
