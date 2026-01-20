@@ -10,7 +10,8 @@ import logger from '../utils/logger.js';
 
 class VersionService {
   constructor() {
-    this.ghcrUrl = 'https://ghcr.io/v2/serversathome-personal/dockpilot/tags/list';
+    // Request more tags to handle pagination (default is very limited)
+    this.ghcrUrl = 'https://ghcr.io/v2/serversathome-personal/dockpilot/tags/list?n=100';
     this.currentVersion = DOCKPILOT_VERSION;
     this.docker = new Docker({ socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' });
   }
@@ -92,7 +93,9 @@ class VersionService {
       }
 
       const data = await response.json();
-      return data.tags || [];
+      const tags = data.tags || [];
+      logger.debug(`Fetched ${tags.length} tags from GHCR: ${tags.slice(0, 10).join(', ')}${tags.length > 10 ? '...' : ''}`);
+      return tags;
     } catch (error) {
       logger.error(`Failed to fetch tags from GHCR: ${error.message}`);
       throw error;

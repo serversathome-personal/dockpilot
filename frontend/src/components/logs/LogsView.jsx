@@ -323,7 +323,7 @@ export default function LogsView() {
     setLogs([]);
   };
 
-  // Copy logs to clipboard
+  // Copy logs to clipboard (with fallback for non-HTTPS contexts)
   const copyLogs = async () => {
     const logText = filteredLogs.map(log => {
       const time = new Date(log.timestamp).toLocaleTimeString();
@@ -333,7 +333,25 @@ export default function LogsView() {
     }).join('\n');
 
     try {
-      await navigator.clipboard.writeText(logText);
+      // Try modern clipboard API first (requires HTTPS)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(logText);
+      } else {
+        // Fallback for non-secure contexts (HTTP)
+        const textArea = document.createElement('textarea');
+        textArea.value = logText;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (!success) {
+          throw new Error('execCommand copy failed');
+        }
+      }
       addNotification({
         type: 'success',
         message: `Copied ${filteredLogs.length} log lines to clipboard`,
