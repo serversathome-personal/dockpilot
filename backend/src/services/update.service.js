@@ -1,10 +1,12 @@
 import cron from 'node-cron';
 import fs from 'fs';
+import fsExtra from 'fs-extra';
 import path from 'path';
 import dockerService from './docker.service.js';
 import stackService from './stack.service.js';
 import notificationService from './notification.service.js';
 import configStore from '../storage/config.store.js';
+import config from '../config/env.js';
 import logger from '../utils/logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -45,7 +47,49 @@ class UpdateService {
   constructor() {
     this.scheduledTasks = new Map();
     this.updateHistory = [];
+    this.historyFile = path.join(config.storage.dataDir, 'update-history.json');
+    this.loadHistory();
     this.initializeSchedules();
+  }
+
+  /**
+   * Load update history from file
+   */
+  async loadHistory() {
+    try {
+      await fsExtra.ensureDir(config.storage.dataDir);
+      if (await fsExtra.pathExists(this.historyFile)) {
+        const data = await fsExtra.readJson(this.historyFile);
+        this.updateHistory = Array.isArray(data) ? data : [];
+        logger.info(`Loaded ${this.updateHistory.length} update history entries`);
+      }
+    } catch (error) {
+      logger.warn(`Failed to load update history: ${error.message}`);
+      this.updateHistory = [];
+    }
+  }
+
+  /**
+   * Save update history to file
+   */
+  async saveHistory() {
+    try {
+      await fsExtra.ensureDir(config.storage.dataDir);
+      await fsExtra.writeJson(this.historyFile, this.updateHistory, { spaces: 2 });
+    } catch (error) {
+      logger.error(`Failed to save update history: ${error.message}`);
+    }
+  }
+
+  /**
+   * Add entry to update history and persist
+   */
+  addToHistory(record) {
+    this.updateHistory.unshift(record);
+    if (this.updateHistory.length > 100) {
+      this.updateHistory = this.updateHistory.slice(0, 100);
+    }
+    this.saveHistory();
   }
 
   /**
@@ -874,11 +918,8 @@ class UpdateService {
       updateRecord.status = 'completed';
       updateRecord.affectedContainers = containersToRecreate.length;
 
-      // Add to history
-      this.updateHistory.unshift(updateRecord);
-      if (this.updateHistory.length > 100) {
-        this.updateHistory = this.updateHistory.slice(0, 100);
-      }
+      // Add to history and persist
+      this.addToHistory(updateRecord);
 
       // Note: Notifications are sent in batch by the caller, not per-update
       logger.info(`Update completed for ${imageTag}`);
@@ -887,7 +928,7 @@ class UpdateService {
       logger.error(`Failed to update ${imageTag}:`, error);
       updateRecord.status = 'failed';
       updateRecord.error = error.message;
-      this.updateHistory.unshift(updateRecord);
+      this.addToHistory(updateRecord);
 
       // Note: Failure notifications are sent in batch by the caller
       throw error;
@@ -1080,10 +1121,8 @@ class UpdateService {
       updateRecord.status = 'completed';
       updateRecord.affectedContainers = containersToRecreate.length;
 
-      this.updateHistory.unshift(updateRecord);
-      if (this.updateHistory.length > 100) {
-        this.updateHistory = this.updateHistory.slice(0, 100);
-      }
+      // Add to history and persist
+      this.addToHistory(updateRecord);
 
       // Note: Notifications are sent in batch by the caller, not per-update
       return updateRecord;
@@ -1091,7 +1130,7 @@ class UpdateService {
       logger.error(`Failed to update ${imageTag}:`, error);
       updateRecord.status = 'failed';
       updateRecord.error = error.message;
-      this.updateHistory.unshift(updateRecord);
+      this.addToHistory(updateRecord);
 
       // Note: Failure notifications are sent in batch by the caller
       throw error;
@@ -1318,6 +1357,7 @@ class UpdateService {
    */
   clearHistory() {
     this.updateHistory = [];
+    this.saveHistory();
   }
 }
 
