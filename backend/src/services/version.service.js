@@ -334,7 +334,9 @@ class VersionService {
 
       // Build the update script
       // Find the compose file and use docker compose v2
+      // Use --project-directory to resolve relative paths from the HOST path, not container path
       const composeArgs = projectName ? `-p ${projectName}` : '';
+      const hostDir = workingDir; // This is the actual host path
       const updateScript = `
         set -e
         sleep 3
@@ -356,10 +358,11 @@ class VersionService {
         fi
 
         echo "Using compose file: $COMPOSE_FILE"
+        echo "Project directory: ${hostDir}"
         echo "Pulling new image..."
-        docker compose -f "$COMPOSE_FILE" ${composeArgs} pull 2>&1 || { echo "Pull failed"; exit 1; }
+        docker compose --project-directory "${hostDir}" -f "/compose/$COMPOSE_FILE" ${composeArgs} pull 2>&1 || { echo "Pull failed"; exit 1; }
         echo "Recreating container..."
-        docker compose -f "$COMPOSE_FILE" ${composeArgs} up -d --force-recreate 2>&1 || { echo "Recreate failed"; exit 1; }
+        docker compose --project-directory "${hostDir}" -f "/compose/$COMPOSE_FILE" ${composeArgs} up -d --force-recreate 2>&1 || { echo "Recreate failed"; exit 1; }
         echo "Update complete"
       `.trim();
 
