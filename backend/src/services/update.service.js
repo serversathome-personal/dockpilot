@@ -828,6 +828,47 @@ class UpdateService {
             });
           }
         }
+
+        // Restart containers that depend on updated containers' networks
+        // This handles cases where container A uses network_mode: container:B
+        // and B was updated - A needs to be restarted after B
+        const updatedContainerNames = containersToRecreate.map(c => c.name);
+        const restartedDependents = new Set();
+
+        for (const containerName of updatedContainerNames) {
+          try {
+            const dependents = await dockerService.getNetworkDependentContainers(containerName);
+            for (const dependent of dependents) {
+              // Avoid restarting the same container twice
+              if (restartedDependents.has(dependent.id)) continue;
+              // Don't restart containers that were just updated
+              if (updatedContainerNames.includes(dependent.name)) continue;
+
+              try {
+                logger.info(`Restarting ${dependent.name} (depends on ${containerName} network)`);
+                await dockerService.restartContainer(dependent.id);
+                restartedDependents.add(dependent.id);
+                updateRecord.restartedContainers.push({
+                  id: dependent.id,
+                  name: dependent.name,
+                  type: 'network-dependent',
+                  dependsOn: containerName,
+                });
+              } catch (restartError) {
+                logger.error(`Failed to restart network-dependent container ${dependent.name}: ${restartError.message}`);
+                updateRecord.restartedContainers.push({
+                  id: dependent.id,
+                  name: dependent.name,
+                  type: 'network-dependent',
+                  dependsOn: containerName,
+                  error: restartError.message,
+                });
+              }
+            }
+          } catch (e) {
+            logger.warn(`Failed to check network dependents for ${containerName}: ${e.message}`);
+          }
+        }
       }
 
       updateRecord.status = 'completed';
@@ -990,6 +1031,48 @@ class UpdateService {
               name: container.name,
               error: error.message,
             });
+          }
+        }
+
+        // Restart containers that depend on updated containers' networks
+        // This handles cases where container A uses network_mode: container:B
+        // and B was updated - A needs to be restarted after B
+        const updatedContainerNames = containersToRecreate.map(c => c.name);
+        const restartedDependents = new Set();
+
+        for (const containerName of updatedContainerNames) {
+          try {
+            const dependents = await dockerService.getNetworkDependentContainers(containerName);
+            for (const dependent of dependents) {
+              // Avoid restarting the same container twice
+              if (restartedDependents.has(dependent.id)) continue;
+              // Don't restart containers that were just updated
+              if (updatedContainerNames.includes(dependent.name)) continue;
+
+              try {
+                logger.info(`Restarting ${dependent.name} (depends on ${containerName} network)`);
+                onProgress({ status: 'restarting-dependent', message: `Restarting ${dependent.name} (network dependency)...` });
+                await dockerService.restartContainer(dependent.id);
+                restartedDependents.add(dependent.id);
+                updateRecord.restartedContainers.push({
+                  id: dependent.id,
+                  name: dependent.name,
+                  type: 'network-dependent',
+                  dependsOn: containerName,
+                });
+              } catch (restartError) {
+                logger.error(`Failed to restart network-dependent container ${dependent.name}: ${restartError.message}`);
+                updateRecord.restartedContainers.push({
+                  id: dependent.id,
+                  name: dependent.name,
+                  type: 'network-dependent',
+                  dependsOn: containerName,
+                  error: restartError.message,
+                });
+              }
+            }
+          } catch (e) {
+            logger.warn(`Failed to check network dependents for ${containerName}: ${e.message}`);
           }
         }
       }

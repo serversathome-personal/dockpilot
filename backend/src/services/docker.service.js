@@ -159,6 +159,49 @@ class DockerService {
   }
 
   /**
+   * Find containers that depend on a specific container's network
+   * These are containers with network_mode: container:<name>
+   * @param {string} containerName - Name of the container to check dependencies for
+   * @returns {Promise<Array>} Array of dependent containers
+   */
+  async getNetworkDependentContainers(containerName) {
+    try {
+      const allContainers = await this.docker.listContainers({ all: true });
+      const dependentContainers = [];
+
+      for (const containerInfo of allContainers) {
+        try {
+          const container = this.docker.getContainer(containerInfo.Id);
+          const info = await container.inspect();
+          const networkMode = info.HostConfig?.NetworkMode || '';
+
+          // Check if this container uses the target container's network
+          // NetworkMode can be "container:<name>" or "container:<id>"
+          if (networkMode.startsWith('container:')) {
+            const dependsOn = networkMode.replace('container:', '');
+            // Check if dependsOn matches the target container name
+            if (dependsOn === containerName) {
+              dependentContainers.push({
+                id: containerInfo.Id,
+                name: containerInfo.Names?.[0]?.replace(/^\//, '') || containerInfo.Id.substring(0, 12),
+                networkMode,
+                state: containerInfo.State,
+              });
+            }
+          }
+        } catch (e) {
+          // Skip containers we can't inspect
+        }
+      }
+
+      return dependentContainers;
+    } catch (error) {
+      logger.error(`Failed to get network-dependent containers for ${containerName}: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Get aggregated metrics for a stack
    * @param {string} stackName - Stack name
    * @returns {Promise<Object>} Stack metrics
