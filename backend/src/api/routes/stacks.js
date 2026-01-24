@@ -42,6 +42,22 @@ router.get('/:name', asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /api/stacks/:name/containers
+ * Get containers belonging to a stack
+ */
+router.get('/:name/containers', asyncHandler(async (req, res) => {
+  const { name } = req.params;
+  logger.info(`Fetching containers for stack: ${name}`);
+
+  const containers = await dockerService.getStackContainers(name);
+
+  res.json({
+    success: true,
+    data: containers,
+  });
+}));
+
+/**
  * POST /api/stacks
  * Create a new stack
  */

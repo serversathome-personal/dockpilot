@@ -24,6 +24,7 @@ import {
   ArrowDownCircleIcon,
   ClipboardDocumentIcon,
   CheckIcon,
+  CubeIcon,
 } from '@heroicons/react/24/outline';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
@@ -80,6 +81,7 @@ export default function StacksView() {
   const [envVars, setEnvVars] = useState({});
   const [envVarsText, setEnvVarsText] = useState('');
   const [logs, setLogs] = useState('');
+  const [stackContainers, setStackContainers] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isOperationInProgress, setIsOperationInProgress] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -712,10 +714,11 @@ export default function StacksView() {
       setLoading(true);
       setSelectedStack(stack);
 
-      // Load stack details
-      const [composeData, envData] = await Promise.all([
+      // Load stack details and containers
+      const [composeData, envData, containersData] = await Promise.all([
         stacksAPI.getCompose(stack.name),
         stacksAPI.getEnv(stack.name),
+        stacksAPI.getContainers(stack.name),
       ]);
 
       // Convert compose object to YAML string
@@ -729,6 +732,9 @@ export default function StacksView() {
         .map(([key, value]) => `${key}=${value}`)
         .join('\n');
       setEnvVarsText(envText);
+
+      // Set containers
+      setStackContainers(containersData.data || []);
 
       setActiveTab('compose');
       setShowDetailModal(true);
@@ -1486,6 +1492,54 @@ KEY2=value2
                 Delete
               </Button>
             </div>
+
+            {/* Containers */}
+            {stackContainers.length > 0 && (
+              <div className="glass-card p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CubeIcon className="h-5 w-5 text-slate-400" />
+                  <h3 className="text-sm font-medium text-slate-300">Containers</h3>
+                </div>
+                <div className="space-y-2">
+                  {stackContainers.map((container) => (
+                    <div
+                      key={container.id}
+                      className="flex items-center justify-between p-2 bg-glass-light rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Badge variant={container.state === 'running' ? 'running' : 'stopped'} size="sm">
+                          {container.state}
+                        </Badge>
+                        <span className="text-white text-sm font-medium">
+                          {container.name}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {container.ports && container.ports.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {container.ports
+                              .filter(p => p.PublicPort)
+                              .map((port, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded"
+                                >
+                                  {port.PublicPort}:{port.PrivatePort}/{port.Type || 'tcp'}
+                                </span>
+                              ))}
+                            {container.ports.filter(p => p.PublicPort).length === 0 && (
+                              <span className="text-xs text-slate-500">No exposed ports</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500">No ports</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Tabs */}
             <div className="flex space-x-4 border-b border-glass-border">

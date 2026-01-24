@@ -3,6 +3,7 @@ import apiClient from './client';
 export const stacksAPI = {
   list: () => apiClient.get('/stacks'),
   get: (name) => apiClient.get(`/stacks/${name}`),
+  getContainers: (name) => apiClient.get(`/stacks/${name}/containers`),
   create: (data) => apiClient.post('/stacks', data),
   delete: (name, params) => apiClient.delete(`/stacks/${name}`, { params }),
   start: (name) => apiClient.post(`/stacks/${name}/start`),
