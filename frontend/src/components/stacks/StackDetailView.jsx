@@ -595,42 +595,54 @@ export default function StackDetailView() {
           </div>
           <div className="px-6 py-4">
             <div className="space-y-2">
-              {stackContainers.map((container) => (
-                <div
-                  key={container.id}
-                  className="flex items-center justify-between p-3 bg-glass-light rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Badge variant={container.state === 'running' ? 'success' : 'default'} size="sm">
-                      {container.state}
-                    </Badge>
-                    <span className="text-white font-medium">
-                      {container.name}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {container.ports && container.ports.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {container.ports
-                          .filter(p => p.publicPort)
-                          .map((port, idx) => (
-                            <span
+              {stackContainers.map((container) => {
+                // Deduplicate ports by publicPort
+                const uniquePorts = container.ports
+                  ?.filter(p => p.publicPort)
+                  .reduce((acc, port) => {
+                    const key = `${port.publicPort}-${port.privatePort}-${port.type}`;
+                    if (!acc.some(p => `${p.publicPort}-${p.privatePort}-${p.type}` === key)) {
+                      acc.push(port);
+                    }
+                    return acc;
+                  }, []) || [];
+
+                return (
+                  <div
+                    key={container.id}
+                    className="flex items-center justify-between p-3 bg-glass-light rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Badge variant={container.state === 'running' ? 'running' : 'default'} size="sm">
+                        {container.state}
+                      </Badge>
+                      <span className="text-white font-medium">
+                        {container.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {uniquePorts.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {uniquePorts.map((port, idx) => (
+                            <a
                               key={idx}
-                              className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded"
+                              href={`http://${window.location.hostname}:${port.publicPort}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded hover:bg-primary/30 transition-colors cursor-pointer"
+                              title={`Open http://${window.location.hostname}:${port.publicPort}`}
                             >
                               {port.publicPort}:{port.privatePort}/{port.type || 'tcp'}
-                            </span>
+                            </a>
                           ))}
-                        {container.ports.filter(p => p.publicPort).length === 0 && (
-                          <span className="text-xs text-slate-500">No exposed ports</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-slate-500">No ports</span>
-                    )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500">No exposed ports</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </Card>
