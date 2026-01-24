@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../../store';
 import { dashboardAPI } from '../../api/dashboard.api';
-import { BellIcon, XMarkIcon, Bars3Icon, ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { BellIcon, XMarkIcon, Bars3Icon, ArrowDownTrayIcon, ArrowPathIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 
@@ -11,6 +11,9 @@ export default function Header() {
   const [versionInfo, setVersionInfo] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
+  const [showUpdateProgress, setShowUpdateProgress] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState('');
+  const [updateComplete, setUpdateComplete] = useState(false);
   const notificationRef = useRef(null);
 
   // Fetch version info on mount and periodically
@@ -49,66 +52,72 @@ export default function Header() {
   // Handle self-update
   const handleSelfUpdate = async () => {
     setShowUpdateConfirm(false);
+    setShowUpdateProgress(true);
     setIsUpdating(true);
+    setUpdateComplete(false);
+    setUpdateStatus('Starting update...');
 
     try {
-      // Store current version before update
       const currentVersion = versionInfo?.currentVersion;
 
       await dashboardAPI.triggerSelfUpdate();
-      addNotification({
-        type: 'info',
-        message: 'DockPilot is updating. The page will reload when complete...',
-      });
+      setUpdateStatus('Update triggered. Pulling new image...');
 
-      // Wait 10 seconds before starting to poll
-      // This gives the updater container time to pull and recreate
-      await new Promise(resolve => setTimeout(resolve, 10000));
-
-      // Poll until version changes or API goes down then comes back up
+      // Poll for update progress
       let sawDowntime = false;
+      let pollCount = 0;
+      const maxPolls = 90; // 3 minutes at 2 second intervals
 
       const checkConnection = setInterval(async () => {
+        pollCount++;
+
         try {
           const response = await dashboardAPI.getVersion();
           const newVersion = response?.data?.currentVersion;
 
-          // If we saw downtime and API is back, reload
           if (sawDowntime) {
+            // Container came back up after downtime
             clearInterval(checkConnection);
-            window.location.reload();
+            setUpdateStatus('Update complete!');
+            setUpdateComplete(true);
+            setIsUpdating(false);
             return;
           }
 
-          // Check if version changed (update completed while container stayed up)
           if (currentVersion && newVersion && newVersion !== currentVersion) {
+            // Version changed without downtime (fast update)
             clearInterval(checkConnection);
-            window.location.reload();
+            setUpdateStatus('Update complete!');
+            setUpdateComplete(true);
+            setIsUpdating(false);
             return;
           }
 
-          // Still on old version, keep waiting
+          // Still waiting - update status based on time elapsed
+          if (pollCount < 5) {
+            setUpdateStatus('Pulling new image...');
+          } else if (pollCount < 15) {
+            setUpdateStatus('Downloading update...');
+          } else {
+            setUpdateStatus('Restarting container...');
+          }
         } catch {
           // API unreachable - container is restarting
           sawDowntime = true;
+          setUpdateStatus('Container restarting...');
+        }
+
+        if (pollCount >= maxPolls) {
+          clearInterval(checkConnection);
+          setUpdateStatus('Update is taking longer than expected.');
+          setUpdateComplete(true);
+          setIsUpdating(false);
         }
       }, 2000);
-
-      // Stop polling after 3 minutes
-      setTimeout(() => {
-        clearInterval(checkConnection);
-        setIsUpdating(false);
-        addNotification({
-          type: 'warning',
-          message: 'Update is taking longer than expected. Please refresh the page manually.',
-        });
-      }, 180000);
     } catch (error) {
       setIsUpdating(false);
-      addNotification({
-        type: 'error',
-        message: `Failed to update: ${error.message}`,
-      });
+      setUpdateStatus(`Failed: ${error.message}`);
+      setUpdateComplete(true);
     }
   };
 
@@ -255,6 +264,73 @@ export default function Header() {
                   {isUpdating ? 'Updating...' : 'Update Now'}
                 </Button>
               </div>
+            </div>
+          </Modal>
+
+          {/* Update Progress Modal */}
+          <Modal
+            isOpen={showUpdateProgress}
+            onClose={() => {
+              if (updateComplete) {
+                setShowUpdateProgress(false);
+                setUpdateStatus('');
+                setUpdateComplete(false);
+              }
+            }}
+            title="Updating DockPilot"
+            size="sm"
+          >
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                {updateComplete && updateStatus === 'Update complete!' ? (
+                  <div className="flex-shrink-0 w-12 h-12 bg-success/20 rounded-full flex items-center justify-center">
+                    <CheckCircleIcon className="h-6 w-6 text-success" />
+                  </div>
+                ) : (
+                  <div className="flex-shrink-0 w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
+                    <ArrowPathIcon className={`h-6 w-6 text-primary ${!updateComplete ? 'animate-spin' : ''}`} />
+                  </div>
+                )}
+                <div>
+                  <p className="text-white font-medium">{updateStatus}</p>
+                  {!updateComplete && (
+                    <p className="text-sm text-slate-400">Please wait...</p>
+                  )}
+                </div>
+              </div>
+
+              {updateComplete && (
+                <>
+                  {updateStatus === 'Update complete!' ? (
+                    <p className="text-sm text-slate-300">
+                      The update has finished. Please refresh the page to load the new version.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-300">
+                      Please refresh the page to check if the update completed successfully.
+                    </p>
+                  )}
+
+                  <div className="flex justify-end space-x-3 pt-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setShowUpdateProgress(false);
+                        setUpdateStatus('');
+                        setUpdateComplete(false);
+                      }}
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={() => window.location.reload()}
+                    >
+                      Refresh Page
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </Modal>
 
