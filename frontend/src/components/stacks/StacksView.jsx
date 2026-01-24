@@ -1518,16 +1518,16 @@ KEY2=value2
                         {container.ports && container.ports.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {container.ports
-                              .filter(p => p.PublicPort)
+                              .filter(p => p.publicPort)
                               .map((port, idx) => (
                                 <span
                                   key={idx}
                                   className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded"
                                 >
-                                  {port.PublicPort}:{port.PrivatePort}/{port.Type || 'tcp'}
+                                  {port.publicPort}:{port.privatePort}/{port.type || 'tcp'}
                                 </span>
                               ))}
-                            {container.ports.filter(p => p.PublicPort).length === 0 && (
+                            {container.ports.filter(p => p.publicPort).length === 0 && (
                               <span className="text-xs text-slate-500">No exposed ports</span>
                             )}
                           </div>
