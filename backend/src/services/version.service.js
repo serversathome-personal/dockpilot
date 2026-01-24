@@ -368,7 +368,6 @@ class VersionService {
 
       // Create and start the updater container
       // The sleep gives time for the API response to be sent before DockPilot restarts
-      // Don't auto-remove so we can check logs on failure
       const containerName = `dockpilot-updater-${Date.now()}`;
       logger.info(`Creating updater container: ${containerName}`);
 
@@ -380,7 +379,7 @@ class VersionService {
             '/var/run/docker.sock:/var/run/docker.sock',
             `${workingDir}:/compose`
           ],
-          AutoRemove: false,
+          AutoRemove: true,
         },
         name: containerName,
       });
