@@ -21,13 +21,16 @@ import {
   Cog6ToothIcon,
   DocumentMagnifyingGlassIcon,
   ArrowUpCircleIcon,
-  ArrowDownCircleIcon
+  ArrowDownCircleIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
 } from '@heroicons/react/24/outline';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { indentUnit } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import DeployProgress, { detectDeployPhase } from './DeployProgress';
 
 // Color palette for containers in deployment logs
@@ -81,6 +84,7 @@ export default function StacksView() {
   const [isOperationInProgress, setIsOperationInProgress] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showRunningOnly, setShowRunningOnly] = useState(false);
+  const [logsCopied, setLogsCopied] = useState(false);
 
   useEffect(() => {
     loadStacks();
@@ -815,6 +819,48 @@ export default function StacksView() {
     }
   };
 
+  const handleCopyLogs = async () => {
+    if (!logs) {
+      addNotification({
+        type: 'info',
+        message: 'No logs to copy',
+      });
+      return;
+    }
+
+    try {
+      // Use Clipboard API if available and in secure context
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(logs);
+      } else {
+        // Fallback for HTTP contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = logs;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+
+      setLogsCopied(true);
+      setTimeout(() => setLogsCopied(false), 2000);
+      addNotification({
+        type: 'success',
+        message: 'Logs copied to clipboard',
+      });
+    } catch (error) {
+      console.error('Failed to copy logs:', error);
+      addNotification({
+        type: 'error',
+        message: 'Failed to copy logs to clipboard',
+      });
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'logs' && selectedStack) {
       loadLogs();
@@ -1098,6 +1144,7 @@ export default function StacksView() {
                 yaml(),
                 indentUnit.of('  '),
                 EditorState.tabSize.of(2),
+                EditorView.lineWrapping,
               ]}
               theme={oneDark}
               basicSetup={{
@@ -1162,6 +1209,7 @@ services:
               extensions={[
                 indentUnit.of('  '),
                 EditorState.tabSize.of(2),
+                EditorView.lineWrapping,
               ]}
               theme={oneDark}
               basicSetup={{
@@ -1520,6 +1568,7 @@ KEY2=value2
                       yaml(),
                       indentUnit.of('  '),
                       EditorState.tabSize.of(2),
+                      EditorView.lineWrapping,
                     ]}
                     theme={oneDark}
                     editable={isEditing}
@@ -1647,6 +1696,7 @@ KEY2=value2
                     extensions={[
                       indentUnit.of('  '),
                       EditorState.tabSize.of(2),
+                      EditorView.lineWrapping,
                     ]}
                     theme={oneDark}
                     editable={isEditing}
@@ -1681,7 +1731,22 @@ ANOTHER_KEY=another_value
                       <Badge variant="primary">Auto-refreshing...</Badge>
                     )}
                     <Button variant="ghost" size="sm" onClick={loadLogs}>
+                      <ArrowPathIcon className="h-4 w-4 mr-1" />
                       Refresh
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopyLogs}
+                      disabled={!logs}
+                      title="Copy logs to clipboard"
+                    >
+                      {logsCopied ? (
+                        <CheckIcon className="h-4 w-4 mr-1 text-green-400" />
+                      ) : (
+                        <ClipboardDocumentIcon className="h-4 w-4 mr-1" />
+                      )}
+                      {logsCopied ? 'Copied!' : 'Copy'}
                     </Button>
                   </div>
                   <div className="glass-card bg-black/50 p-4 rounded-lg overflow-auto max-h-[400px]">

@@ -183,7 +183,7 @@ export default function LogsView() {
       pendingSubscriptionsRef.current.forEach(container => {
         ws.send(JSON.stringify({
           type: 'subscribe',
-          payload: { containerId: container.id, tail: 100 }
+          payload: { containerId: container.id, tail: 1000 }
         }));
       });
       pendingSubscriptionsRef.current = [];
@@ -244,7 +244,7 @@ export default function LogsView() {
 
     wsRef.current.send(JSON.stringify({
       type: 'subscribe',
-      payload: { containerId: container.id, tail: 100 }
+      payload: { containerId: container.id, tail: 1000 }
     }));
   };
 
@@ -296,7 +296,7 @@ export default function LogsView() {
       runningContainers.forEach(c => {
         wsRef.current.send(JSON.stringify({
           type: 'subscribe',
-          payload: { containerId: c.id, tail: 100 }
+          payload: { containerId: c.id, tail: 1000 }
         }));
       });
     }

@@ -1,6 +1,6 @@
 {
   "name": "dockpilot",
-  "version": "1.0.0",
+  "version": "1.3.21",
   "description": "DockPilot - A modern web-based GUI for managing Docker containers and stacks",
   "private": true,
   "workspaces": [
