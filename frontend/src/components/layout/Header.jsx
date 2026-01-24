@@ -58,22 +58,41 @@ export default function Header() {
         message: 'DockPilot is updating. The page will reload when complete...',
       });
 
-      // Poll for reconnection
+      // Two-phase update detection:
+      // Phase 1: Wait for the old container to go down (API becomes unreachable)
+      // Phase 2: Wait for the new container to come up (API becomes reachable again)
+      let phase = 'waiting-for-shutdown';
+
       const checkConnection = setInterval(async () => {
         try {
           await dashboardAPI.getVersion();
+
+          if (phase === 'waiting-for-shutdown') {
+            // Old container still running, keep waiting for it to go down
+            return;
+          }
+
+          // Phase 2 complete: new container is up, reload the page
           clearInterval(checkConnection);
           window.location.reload();
         } catch {
-          // Still updating, keep waiting
+          if (phase === 'waiting-for-shutdown') {
+            // Container went down, switch to phase 2
+            phase = 'waiting-for-startup';
+          }
+          // Still waiting for new container to come up
         }
-      }, 3000);
+      }, 2000);
 
-      // Stop polling after 2 minutes
+      // Stop polling after 3 minutes
       setTimeout(() => {
         clearInterval(checkConnection);
         setIsUpdating(false);
-      }, 120000);
+        addNotification({
+          type: 'warning',
+          message: 'Update is taking longer than expected. Please refresh the page manually.',
+        });
+      }, 180000);
     } catch (error) {
       setIsUpdating(false);
       addNotification({
