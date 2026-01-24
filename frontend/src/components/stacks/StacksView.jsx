@@ -1152,12 +1152,10 @@ export default function StacksView() {
                 highlightActiveLineGutter: true,
                 highlightActiveLine: true,
                 foldGutter: true,
-                indentOnInput: true,
               }}
               style={{
                 fontSize: '14px',
                 borderRadius: '8px',
-                overflow: 'hidden',
               }}
               minHeight="300px"
               placeholder="version: '3.8'
@@ -1216,12 +1214,10 @@ services:
                 lineNumbers: true,
                 highlightActiveLineGutter: true,
                 highlightActiveLine: true,
-                indentOnInput: true,
               }}
               style={{
                 fontSize: '14px',
                 borderRadius: '8px',
-                overflow: 'hidden',
               }}
               minHeight="150px"
               placeholder="KEY1=value1
@@ -1577,12 +1573,10 @@ KEY2=value2
                       highlightActiveLineGutter: true,
                       highlightActiveLine: true,
                       foldGutter: true,
-                      indentOnInput: true,
                     }}
                     style={{
                       fontSize: '14px',
                       borderRadius: '8px',
-                      overflow: 'hidden',
                     }}
                     minHeight="300px"
                     maxHeight="400px"
@@ -1704,12 +1698,10 @@ KEY2=value2
                       lineNumbers: true,
                       highlightActiveLineGutter: true,
                       highlightActiveLine: true,
-                      indentOnInput: true,
                     }}
                     style={{
                       fontSize: '14px',
                       borderRadius: '8px',
-                      overflow: 'hidden',
                     }}
                     minHeight="300px"
                     placeholder="KEY=value

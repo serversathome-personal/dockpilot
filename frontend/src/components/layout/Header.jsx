@@ -52,35 +52,45 @@ export default function Header() {
     setIsUpdating(true);
 
     try {
+      // Store current version before update
+      const currentVersion = versionInfo?.currentVersion;
+
       await dashboardAPI.triggerSelfUpdate();
       addNotification({
         type: 'info',
         message: 'DockPilot is updating. The page will reload when complete...',
       });
 
-      // Two-phase update detection:
-      // Phase 1: Wait for the old container to go down (API becomes unreachable)
-      // Phase 2: Wait for the new container to come up (API becomes reachable again)
-      let phase = 'waiting-for-shutdown';
+      // Wait 10 seconds before starting to poll
+      // This gives the updater container time to pull and recreate
+      await new Promise(resolve => setTimeout(resolve, 10000));
+
+      // Poll until version changes or API goes down then comes back up
+      let sawDowntime = false;
 
       const checkConnection = setInterval(async () => {
         try {
-          await dashboardAPI.getVersion();
+          const response = await dashboardAPI.getVersion();
+          const newVersion = response?.data?.currentVersion;
 
-          if (phase === 'waiting-for-shutdown') {
-            // Old container still running, keep waiting for it to go down
+          // If we saw downtime and API is back, reload
+          if (sawDowntime) {
+            clearInterval(checkConnection);
+            window.location.reload();
             return;
           }
 
-          // Phase 2 complete: new container is up, reload the page
-          clearInterval(checkConnection);
-          window.location.reload();
-        } catch {
-          if (phase === 'waiting-for-shutdown') {
-            // Container went down, switch to phase 2
-            phase = 'waiting-for-startup';
+          // Check if version changed (update completed while container stayed up)
+          if (currentVersion && newVersion && newVersion !== currentVersion) {
+            clearInterval(checkConnection);
+            window.location.reload();
+            return;
           }
-          // Still waiting for new container to come up
+
+          // Still on old version, keep waiting
+        } catch {
+          // API unreachable - container is restarting
+          sawDowntime = true;
         }
       }, 2000);
 
