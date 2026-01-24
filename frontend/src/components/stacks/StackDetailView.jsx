@@ -7,7 +7,7 @@ import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Badge from '../common/Badge';
 import ComposeValidation from '../common/ComposeValidation';
-import { ArrowLeftIcon, PlayIcon, StopIcon, ArrowPathIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlayIcon, StopIcon, ArrowPathIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon, CubeIcon } from '@heroicons/react/24/outline';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -17,6 +17,7 @@ export default function StackDetailView() {
   const navigate = useNavigate();
   const { isLoading, setLoading, addNotification } = useStore();
   const [stack, setStack] = useState(null);
+  const [stackContainers, setStackContainers] = useState([]);
   const [composeContent, setComposeContent] = useState('');
   const [envVars, setEnvVars] = useState({});
   const [envVarsText, setEnvVarsText] = useState('');
@@ -51,13 +52,15 @@ export default function StackDetailView() {
   const loadStackDetails = async () => {
     try {
       setLoading(true);
-      const [stackData, composeData, envData] = await Promise.all([
+      const [stackData, composeData, envData, containersData] = await Promise.all([
         stacksAPI.get(name),
         stacksAPI.getCompose(name),
         stacksAPI.getEnv(name),
+        stacksAPI.getContainers(name),
       ]);
 
       setStack(stackData.data);
+      setStackContainers(containersData.data || []);
 
       // Convert compose object to YAML string
       const yaml = await import('js-yaml');
@@ -579,6 +582,59 @@ export default function StackDetailView() {
           </Button>
         </div>
       </div>
+
+      {/* Containers Section */}
+      {stackContainers.length > 0 && (
+        <Card noPadding>
+          <div className="px-6 py-4 border-b border-glass-border">
+            <div className="flex items-center gap-2">
+              <CubeIcon className="h-5 w-5 text-slate-400" />
+              <h3 className="text-lg font-semibold text-white">Containers</h3>
+              <span className="text-sm text-slate-400">({stackContainers.length})</span>
+            </div>
+          </div>
+          <div className="px-6 py-4">
+            <div className="space-y-2">
+              {stackContainers.map((container) => (
+                <div
+                  key={container.id}
+                  className="flex items-center justify-between p-3 bg-glass-light rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge variant={container.state === 'running' ? 'success' : 'default'} size="sm">
+                      {container.state}
+                    </Badge>
+                    <span className="text-white font-medium">
+                      {container.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {container.ports && container.ports.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {container.ports
+                          .filter(p => p.publicPort)
+                          .map((port, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 text-xs bg-primary/20 text-primary rounded"
+                            >
+                              {port.publicPort}:{port.privatePort}/{port.type || 'tcp'}
+                            </span>
+                          ))}
+                        {container.ports.filter(p => p.publicPort).length === 0 && (
+                          <span className="text-xs text-slate-500">No exposed ports</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-500">No ports</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Compose File Section */}
       <Card noPadding>
