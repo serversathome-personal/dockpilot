@@ -64,7 +64,7 @@ export default function StackDetailView() {
 
       // Convert compose object to YAML string
       const yaml = await import('js-yaml');
-      setComposeContent(yaml.dump(composeData.data));
+      setComposeContent(yaml.dump(composeData.data, { lineWidth: -1 }));
 
       // Convert env vars object to text format
       const envObj = envData.data || {};
