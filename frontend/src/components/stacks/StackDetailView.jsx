@@ -942,6 +942,13 @@ ANOTHER_KEY=another_value
               )}
               {logsCopied ? 'Copied!' : 'Copy'}
             </Button>
+            <Button
+              variant="primary"
+              onClick={() => navigate(`/logs?stack=${name}`)}
+            >
+              <DocumentTextIcon className="h-4 w-4 mr-2" />
+              Open in Logs Page
+            </Button>
           </div>
         </div>
         <div className="px-6 py-4">
