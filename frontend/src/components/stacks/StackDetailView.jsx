@@ -2,12 +2,13 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import { stacksAPI } from '../../api/stacks.api';
+import { containersAPI } from '../../api/containers.api';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Badge from '../common/Badge';
 import ComposeValidation from '../common/ComposeValidation';
-import { ArrowLeftIcon, PlayIcon, StopIcon, ArrowPathIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon, CubeIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlayIcon, StopIcon, ArrowPathIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon, CubeIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -237,6 +238,25 @@ export default function StackDetailView() {
         message: error.message || 'Failed to delete stack',
       });
       setLoading(false);
+    }
+  };
+
+  const handleContainerAction = async (containerId, action, actionLabel) => {
+    try {
+      await containersAPI[action](containerId);
+      addNotification({
+        type: 'success',
+        message: `Container ${actionLabel} successfully`,
+      });
+      // Refresh containers list
+      const containersData = await stacksAPI.getContainers(name);
+      setStackContainers(containersData.data || []);
+    } catch (error) {
+      console.error(`Failed to ${actionLabel} container:`, error);
+      addNotification({
+        type: 'error',
+        message: error.message || `Failed to ${actionLabel} container`,
+      });
     }
   };
 
@@ -620,8 +640,9 @@ export default function StackDetailView() {
                         {container.name}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {uniquePorts.length > 0 ? (
+                    <div className="flex items-center gap-3">
+                      {/* Ports */}
+                      {uniquePorts.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {uniquePorts.map((port, idx) => (
                             <a
@@ -636,9 +657,43 @@ export default function StackDetailView() {
                             </a>
                           ))}
                         </div>
-                      ) : (
-                        <span className="text-xs text-slate-500">No exposed ports</span>
                       )}
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1">
+                        {container.state === 'running' ? (
+                          <>
+                            <button
+                              onClick={() => handleContainerAction(container.id, 'restart', 'restarted')}
+                              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+                              title="Restart container"
+                            >
+                              <ArrowPathIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleContainerAction(container.id, 'stop', 'stopped')}
+                              className="p-1.5 text-slate-400 hover:text-warning hover:bg-warning/10 rounded transition-colors"
+                              title="Stop container"
+                            >
+                              <StopIcon className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => handleContainerAction(container.id, 'start', 'started')}
+                            className="p-1.5 text-slate-400 hover:text-success hover:bg-success/10 rounded transition-colors"
+                            title="Start container"
+                          >
+                            <PlayIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => navigate(`/logs?container=${container.id}`)}
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded transition-colors"
+                          title="View logs"
+                        >
+                          <DocumentTextIcon className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
