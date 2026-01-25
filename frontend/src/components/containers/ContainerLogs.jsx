@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../store';
 import Button from '../common/Button';
-import { TrashIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, ClipboardDocumentIcon, CheckIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 
 export default function ContainerLogs({ containerId }) {
+  const navigate = useNavigate();
   const logsEndRef = useRef(null);
   const logsContainerRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
   const [logs, setLogs] = useState([]);
   const [ws, setWs] = useState(null);
+  const [logsCopied, setLogsCopied] = useState(false);
   const { addNotification } = useStore();
 
   // Maximum number of log lines to keep in memory
@@ -112,6 +115,39 @@ export default function ContainerLogs({ containerId }) {
     setLogs([]);
   };
 
+  const handleCopyLogs = async () => {
+    const logText = logs.join('\n');
+    if (!logText) {
+      addNotification({ type: 'warning', message: 'No logs to copy' });
+      return;
+    }
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(logText);
+      } else {
+        // Fallback for HTTP contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = logText;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+      setLogsCopied(true);
+      setTimeout(() => setLogsCopied(false), 2000);
+    } catch (error) {
+      addNotification({ type: 'error', message: 'Failed to copy logs' });
+    }
+  };
+
+  const handleOpenInLogsPage = () => {
+    navigate(`/logs?container=${containerId}`);
+  };
+
   const handleScroll = () => {
     if (!logsContainerRef.current) return;
 
@@ -142,15 +178,40 @@ export default function ContainerLogs({ containerId }) {
             {logs.length} lines
           </span>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleClearLogs}
-          className="flex items-center"
-        >
-          <TrashIcon className="h-4 w-4 mr-1" />
-          Clear
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleClearLogs}
+            className="flex items-center"
+          >
+            <TrashIcon className="h-4 w-4 mr-1" />
+            Clear
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleCopyLogs}
+            disabled={logs.length === 0}
+            className="flex items-center"
+          >
+            {logsCopied ? (
+              <CheckIcon className="h-4 w-4 mr-1 text-green-400" />
+            ) : (
+              <ClipboardDocumentIcon className="h-4 w-4 mr-1" />
+            )}
+            {logsCopied ? 'Copied!' : 'Copy'}
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleOpenInLogsPage}
+            className="flex items-center"
+          >
+            <DocumentTextIcon className="h-4 w-4 mr-1" />
+            Open in Logs Page
+          </Button>
+        </div>
       </div>
 
       <div
