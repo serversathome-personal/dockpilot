@@ -8,7 +8,7 @@ import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Badge from '../common/Badge';
 import ComposeValidation from '../common/ComposeValidation';
-import { ArrowLeftIcon, PlayIcon, StopIcon, ArrowPathIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon, CubeIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, PlayIcon, StopIcon, ArrowPathIcon, TrashIcon, ArrowUpCircleIcon, ArrowDownCircleIcon, CubeIcon, DocumentTextIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { oneDark } from '@codemirror/theme-one-dark';
@@ -27,6 +27,7 @@ export default function StackDetailView() {
   const [isEditingEnv, setIsEditingEnv] = useState(false);
   const [isOperationInProgress, setIsOperationInProgress] = useState(false);
   const [operationOutput, setOperationOutput] = useState('');
+  const [logsCopied, setLogsCopied] = useState(false);
   const logsRef = useRef(null);
   const logsContentRef = useRef(null);
 
@@ -97,6 +98,47 @@ export default function StackDetailView() {
       addNotification({
         type: 'error',
         message: 'Failed to load logs',
+      });
+    }
+  };
+
+  const handleCopyLogs = async () => {
+    const logText = operationOutput || logs;
+    if (!logText) {
+      addNotification({
+        type: 'info',
+        message: 'No logs to copy',
+      });
+      return;
+    }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(logText);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = logText;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+
+      setLogsCopied(true);
+      setTimeout(() => setLogsCopied(false), 2000);
+      addNotification({
+        type: 'success',
+        message: 'Logs copied to clipboard',
+      });
+    } catch (error) {
+      console.error('Failed to copy logs:', error);
+      addNotification({
+        type: 'error',
+        message: 'Failed to copy logs to clipboard',
       });
     }
   };
@@ -883,9 +925,24 @@ ANOTHER_KEY=another_value
               <Badge variant="primary">Auto-refreshing...</Badge>
             )}
           </div>
-          <Button variant="secondary" onClick={loadLogs}>
-            Refresh Logs
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button variant="secondary" onClick={loadLogs}>
+              <ArrowPathIcon className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleCopyLogs}
+              disabled={!logs && !operationOutput}
+            >
+              {logsCopied ? (
+                <CheckIcon className="h-4 w-4 mr-2 text-success" />
+              ) : (
+                <ClipboardDocumentIcon className="h-4 w-4 mr-2" />
+              )}
+              {logsCopied ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
         </div>
         <div className="px-6 py-4">
           <pre
