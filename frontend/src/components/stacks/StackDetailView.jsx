@@ -663,35 +663,35 @@ export default function StackDetailView() {
                         {container.state === 'running' ? (
                           <>
                             <button
-                              onClick={() => handleContainerAction(container.id, 'restart', 'restarted')}
-                              className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded transition-colors"
-                              title="Restart container"
+                              onClick={() => handleContainerAction(container.id, 'stop', 'stopped')}
+                              className="text-warning hover:text-warning-light transition-colors"
+                              title="Stop"
                             >
-                              <ArrowPathIcon className="h-4 w-4" />
+                              <StopIcon className="h-5 w-5" />
                             </button>
                             <button
-                              onClick={() => handleContainerAction(container.id, 'stop', 'stopped')}
-                              className="p-1.5 text-slate-400 hover:text-warning hover:bg-warning/10 rounded transition-colors"
-                              title="Stop container"
+                              onClick={() => handleContainerAction(container.id, 'restart', 'restarted')}
+                              className="text-primary hover:text-primary-light transition-colors"
+                              title="Restart"
                             >
-                              <StopIcon className="h-4 w-4" />
+                              <ArrowPathIcon className="h-5 w-5" />
                             </button>
                           </>
                         ) : (
                           <button
                             onClick={() => handleContainerAction(container.id, 'start', 'started')}
-                            className="p-1.5 text-slate-400 hover:text-success hover:bg-success/10 rounded transition-colors"
-                            title="Start container"
+                            className="text-success hover:text-success-light transition-colors"
+                            title="Start"
                           >
-                            <PlayIcon className="h-4 w-4" />
+                            <PlayIcon className="h-5 w-5" />
                           </button>
                         )}
                         <button
-                          onClick={() => navigate(`/logs?container=${container.id}`)}
-                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded transition-colors"
-                          title="View logs"
+                          onClick={() => navigate(`/logs?containers=${container.id}`)}
+                          className="text-slate-400 hover:text-white transition-colors"
+                          title="View Logs"
                         >
-                          <DocumentTextIcon className="h-4 w-4" />
+                          <DocumentTextIcon className="h-5 w-5" />
                         </button>
                       </div>
                     </div>
