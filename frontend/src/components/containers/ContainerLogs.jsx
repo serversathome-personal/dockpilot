@@ -145,7 +145,7 @@ export default function ContainerLogs({ containerId }) {
   };
 
   const handleOpenInLogsPage = () => {
-    navigate(`/logs?container=${containerId}`);
+    navigate(`/logs?containers=${containerId}`);
   };
 
   const handleScroll = () => {
