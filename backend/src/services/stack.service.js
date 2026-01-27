@@ -290,13 +290,6 @@ class StackService {
         throw new Error('No compose file found (docker-compose.yml, docker-compose.yaml, compose.yml, or compose.yaml)');
       }
 
-      // Validate YAML syntax
-      try {
-        yaml.load(content);
-      } catch (error) {
-        throw new Error(`Invalid YAML syntax: ${error.message}`);
-      }
-
       // Write new content (preserve original filename)
       await fs.writeFile(composeFile, content, 'utf8');
       logger.info(`Updated compose file for stack ${stackName}`);
@@ -534,13 +527,6 @@ class StackService {
       // Check if stack already exists
       if (await fs.pathExists(stackDir)) {
         throw new Error('Stack already exists');
-      }
-
-      // Validate YAML syntax
-      try {
-        yaml.load(composeContent);
-      } catch (error) {
-        throw new Error(`Invalid YAML syntax: ${error.message}`);
       }
 
       // Create stack directory
