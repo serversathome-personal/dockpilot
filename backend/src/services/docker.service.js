@@ -878,10 +878,18 @@ class DockerService {
       const usedMem = totalMem - freeMem;
       const memoryUsage = Math.round((usedMem / totalMem) * 100);
 
-      // Get disk usage for Docker root directory
+      // Get disk usage - try Docker root dir first, then fall back to root filesystem
       let storageInfo = {};
       try {
-        const dfOutput = execSync(`df -B1 ${info.DockerRootDir || '/var/lib/docker'}`, { encoding: 'utf8' });
+        // Try Docker root directory first
+        let dfOutput;
+        try {
+          dfOutput = execSync(`df -B1 ${info.DockerRootDir || '/var/lib/docker'} 2>/dev/null`, { encoding: 'utf8' });
+        } catch (e) {
+          // Fall back to root filesystem (works inside containers)
+          dfOutput = execSync('df -B1 /', { encoding: 'utf8' });
+        }
+
         const lines = dfOutput.trim().split('\n');
         if (lines.length > 1) {
           const parts = lines[1].split(/\s+/);
