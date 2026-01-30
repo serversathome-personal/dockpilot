@@ -1269,6 +1269,23 @@ class UpdateService {
             const results = await this.executeMultipleUpdates(updatesToApply, {
               restartContainers: schedule.restartContainers,
             });
+
+            // Prune old/dangling images after updates complete
+            try {
+              logger.info('Pruning old images after scheduled update...');
+              const pruneResult = await dockerService.pruneImages({ all: false });
+              const deletedCount = pruneResult.ImagesDeleted?.length || 0;
+              const spaceReclaimed = pruneResult.SpaceReclaimed || 0;
+              if (deletedCount > 0) {
+                const spaceMB = (spaceReclaimed / 1024 / 1024).toFixed(2);
+                logger.info(`Pruned ${deletedCount} old image(s), reclaimed ${spaceMB} MB`);
+              } else {
+                logger.info('No old images to prune');
+              }
+            } catch (pruneError) {
+              logger.warn(`Failed to prune old images: ${pruneError.message}`);
+            }
+
             // Send batch notification for scheduled updates
             await notificationService.notifyBatchUpdateCompleted(results);
             logger.info(`Scheduled update completed: ${updatesToApply.length} images updated`);
