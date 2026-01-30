@@ -485,7 +485,7 @@ class StackService {
   }
 
   /**
-   * Recreate containers in a stack (uses docker compose up -d which recreates containers with updated images)
+   * Recreate containers in a stack (uses docker compose down then up to properly handle network dependencies)
    * @param {string} stackName - Stack name
    * @param {string} serviceName - Optional specific service to recreate
    * @returns {Promise<Object>} Command result
@@ -498,15 +498,21 @@ class StackService {
         throw new Error('Stack not found');
       }
 
-      // Use 'up -d' which will recreate containers if their image has changed
-      // Add --force-recreate to ensure containers are recreated even if config hasn't changed
-      const command = serviceName
-        ? `up -d --force-recreate ${serviceName}`
-        : 'up -d --force-recreate';
-
-      const result = await this.executeComposeCommand(stackDir, command);
-      logger.info(`Recreated stack ${stackName}${serviceName ? ` (service: ${serviceName})` : ''}`);
-      return result;
+      // Do a full down then up to properly handle network namespace dependencies
+      // This ensures containers with network_mode: container:X get new references
+      if (serviceName) {
+        // For single service, stop and remove just that service, then recreate
+        await this.executeComposeCommand(stackDir, 'rm', ['-f', '-s', serviceName]);
+        const result = await this.executeComposeCommand(stackDir, 'up', ['-d', serviceName]);
+        logger.info(`Recreated service ${serviceName} in stack ${stackName}`);
+        return result;
+      } else {
+        // For full stack, do down then up to ensure clean recreation
+        await this.executeComposeCommand(stackDir, 'down');
+        const result = await this.executeComposeCommand(stackDir, 'up', ['-d']);
+        logger.info(`Recreated stack ${stackName}`);
+        return result;
+      }
     } catch (error) {
       logger.error(`Failed to recreate stack ${stackName}:`, error);
       throw new Error(`Failed to recreate stack ${stackName}: ${error.message}`);
