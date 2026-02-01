@@ -487,7 +487,7 @@ class StackService {
   /**
    * Recreate containers in a stack (uses docker compose down then up to properly handle network dependencies)
    * @param {string} stackName - Stack name
-   * @param {string} serviceName - Optional specific service to recreate
+   * @param {string} serviceName - Optional specific service to recreate (ignored - always recreates full stack)
    * @returns {Promise<Object>} Command result
    */
   async recreateStack(stackName, serviceName = null) {
@@ -498,21 +498,23 @@ class StackService {
         throw new Error('Stack not found');
       }
 
-      // Do a full down then up to properly handle network namespace dependencies
-      // This ensures containers with network_mode: container:X get new references
+      // ALWAYS do a full down then up for the entire stack
+      // This is necessary because:
+      // 1. Services may have network_mode: container:X or service:X dependencies
+      // 2. When the dependency container is recreated with a new ID, dependent containers
+      //    still reference the old container ID and will fail
+      // 3. Docker Compose doesn't automatically handle these dependency chains
+      //
+      // Even if only one service is being updated, we must recreate the entire stack
+      // to ensure all network namespace references are properly updated
       if (serviceName) {
-        // For single service, stop and remove just that service, then recreate
-        await this.executeComposeCommand(stackDir, 'rm', ['-f', '-s', serviceName]);
-        const result = await this.executeComposeCommand(stackDir, 'up', ['-d', serviceName]);
-        logger.info(`Recreated service ${serviceName} in stack ${stackName}`);
-        return result;
-      } else {
-        // For full stack, do down then up to ensure clean recreation
-        await this.executeComposeCommand(stackDir, 'down');
-        const result = await this.executeComposeCommand(stackDir, 'up', ['-d']);
-        logger.info(`Recreated stack ${stackName}`);
-        return result;
+        logger.info(`Service ${serviceName} update requested - recreating entire stack ${stackName} to handle dependencies`);
       }
+
+      await this.executeComposeCommand(stackDir, 'down');
+      const result = await this.executeComposeCommand(stackDir, 'up', ['-d']);
+      logger.info(`Recreated stack ${stackName}`);
+      return result;
     } catch (error) {
       logger.error(`Failed to recreate stack ${stackName}:`, error);
       throw new Error(`Failed to recreate stack ${stackName}: ${error.message}`);
