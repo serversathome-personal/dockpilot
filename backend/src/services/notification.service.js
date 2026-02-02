@@ -15,6 +15,35 @@ class NotificationService {
     this.maxHistorySize = 100;
     this.containerStates = new Map(); // Track container states for unexpected stop detection
     this.versionCheckInterval = null; // Daily version check interval
+    this.updatingStacks = new Set(); // Track stacks currently being updated (suppress stop notifications)
+  }
+
+  /**
+   * Mark a stack as currently being updated (suppresses stop notifications)
+   * @param {string} stackName - Stack name
+   */
+  markStackUpdating(stackName) {
+    this.updatingStacks.add(stackName);
+    logger.debug(`Stack ${stackName} marked as updating`);
+  }
+
+  /**
+   * Unmark a stack as being updated
+   * @param {string} stackName - Stack name
+   */
+  unmarkStackUpdating(stackName) {
+    this.updatingStacks.delete(stackName);
+    logger.debug(`Stack ${stackName} unmarked as updating`);
+  }
+
+  /**
+   * Check if a container belongs to a stack that's currently being updated
+   * @param {Object} actor - Docker event actor
+   * @returns {boolean} True if the container's stack is being updated
+   */
+  isContainerStackUpdating(actor) {
+    const stackName = actor?.attributes?.['com.docker.compose.project'];
+    return stackName && this.updatingStacks.has(stackName);
   }
 
   async initialize() {
@@ -351,6 +380,12 @@ class NotificationService {
 
         // Update state
         this.containerStates.delete(actor?.id);
+
+        // Skip notifications for containers in stacks that are being updated
+        if (this.isContainerStackUpdating(actor)) {
+          logger.debug(`Suppressing stop notification for ${name} (stack is updating)`);
+          return;
+        }
 
         // Only notify for unexpected stops (non-zero exit codes or if we were tracking it)
         if (exitCode && exitCode !== '0') {

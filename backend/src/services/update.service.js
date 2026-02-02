@@ -826,6 +826,9 @@ class UpdateService {
         // Recreate stack containers
         for (const [stackName, services] of stacksToRecreate) {
           try {
+            // Mark stack as updating to suppress stop notifications
+            notificationService.markStackUpdating(stackName);
+
             if (services.length === 1) {
               await stackService.recreateStack(stackName, services[0].serviceName);
             } else {
@@ -850,6 +853,9 @@ class UpdateService {
                 error: error.message,
               });
             }
+          } finally {
+            // Always unmark stack when done (success or failure)
+            notificationService.unmarkStackUpdating(stackName);
           }
         }
 
@@ -1022,6 +1028,9 @@ class UpdateService {
         // Recreate stack containers
         for (const [stackName, services] of stacksToRecreate) {
           try {
+            // Mark stack as updating to suppress stop notifications
+            notificationService.markStackUpdating(stackName);
+
             // If only one service in the stack needs updating, recreate just that service
             // Otherwise recreate the whole stack
             if (services.length === 1) {
@@ -1049,6 +1058,9 @@ class UpdateService {
                 error: error.message,
               });
             }
+          } finally {
+            // Always unmark stack when done (success or failure)
+            notificationService.unmarkStackUpdating(stackName);
           }
         }
 
