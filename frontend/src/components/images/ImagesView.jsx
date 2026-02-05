@@ -18,7 +18,7 @@ export default function ImagesView() {
   const [pullImageName, setPullImageName] = useState('');
   const [isPulling, setIsPulling] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [danglingFilter, setDanglingFilter] = useState('hide'); // 'hide', 'show', 'only'
+  const [imageFilter, setImageFilter] = useState('active'); // 'active', 'all', 'unused', 'dangling'
   const [isPruning, setIsPruning] = useState(false);
   const [containers, setContainers] = useState([]);
 
@@ -229,8 +229,12 @@ export default function ImagesView() {
       key: 'containers',
       label: 'Used By',
       sortable: true,
-      render: (containers) => {
+      render: (containers, image) => {
         if (!containers || containers.length === 0) {
+          // Show "Unused" badge for tagged images with no containers
+          if (image.repository !== '<none>') {
+            return <span className="text-xs px-2 py-0.5 rounded bg-warning/20 text-warning">Unused</span>;
+          }
           return <span className="text-slate-500">-</span>;
         }
         return (
@@ -266,18 +270,23 @@ export default function ImagesView() {
     },
   ];
 
-  // Filter images based on dangling filter and search
+  // Filter images based on filter and search
   const filteredImages = images.filter((img) => {
     const isDangling = img.repository === '<none>';
+    const isUnused = !isDangling && (!img.containers || img.containers.length === 0);
+    const isActive = !isDangling && img.containers && img.containers.length > 0;
 
-    // Apply dangling filter
-    if (danglingFilter === 'hide' && isDangling) {
+    // Apply image filter
+    if (imageFilter === 'active' && !isActive) {
       return false;
     }
-    if (danglingFilter === 'only' && !isDangling) {
+    if (imageFilter === 'unused' && !isUnused) {
       return false;
     }
-    // 'show' includes all images
+    if (imageFilter === 'dangling' && !isDangling) {
+      return false;
+    }
+    // 'all' includes all images
 
     // Apply search filter
     if (searchTerm) {
@@ -291,8 +300,10 @@ export default function ImagesView() {
     return true;
   });
 
-  // Count dangling images
+  // Count images by category
   const danglingCount = images.filter(img => img.repository === '<none>').length;
+  const unusedCount = images.filter(img => img.repository !== '<none>' && (!img.containers || img.containers.length === 0)).length;
+  const activeCount = images.filter(img => img.repository !== '<none>' && img.containers && img.containers.length > 0).length;
 
   // Calculate total size
   const totalSize = images.reduce((acc, img) => acc + (img.size || 0), 0);
@@ -363,17 +374,16 @@ export default function ImagesView() {
             </button>
           )}
         </div>
-        {danglingCount > 0 && (
-          <select
-            value={danglingFilter}
-            onChange={(e) => setDanglingFilter(e.target.value)}
-            className="glass-select text-sm py-2 px-3"
-          >
-            <option value="hide">Hide dangling</option>
-            <option value="show">Show all ({images.length})</option>
-            <option value="only">Only dangling ({danglingCount})</option>
-          </select>
-        )}
+        <select
+          value={imageFilter}
+          onChange={(e) => setImageFilter(e.target.value)}
+          className="glass-select text-sm py-2 px-3"
+        >
+          <option value="active">In use ({activeCount})</option>
+          <option value="all">All images ({images.length})</option>
+          <option value="unused">Unused ({unusedCount})</option>
+          {danglingCount > 0 && <option value="dangling">Dangling ({danglingCount})</option>}
+        </select>
       </div>
 
       <Table
