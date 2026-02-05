@@ -504,25 +504,49 @@ class DockerService {
   }
 
   /**
-   * Prune unused images
+   * Prune unused images and build cache
    * @param {Object} options - Prune options
    * @param {boolean} options.all - Remove all unused images, not just dangling
    * @returns {Promise<Object>} Prune result
    */
   async pruneImages(options = {}) {
     try {
+      const { execSync } = await import('child_process');
+
       // By default, prune all unused images (not just dangling)
       // This is equivalent to `docker image prune -a`
       const filters = options.all !== false ? { dangling: ['false'] } : {};
 
       const result = await this.docker.pruneImages({ filters });
+
+      // Also prune build cache
+      let buildCacheReclaimed = 0;
+      try {
+        const buildPruneOutput = execSync('docker builder prune -a -f 2>/dev/null', { encoding: 'utf8' });
+        // Parse output to get reclaimed space (format: "Total reclaimed space: 1.234GB")
+        const match = buildPruneOutput.match(/Total reclaimed space:\s*([\d.]+)\s*([KMGT]?B)/i);
+        if (match) {
+          const value = parseFloat(match[1]);
+          const unit = match[2].toUpperCase();
+          const multipliers = { 'B': 1, 'KB': 1024, 'MB': 1024**2, 'GB': 1024**3, 'TB': 1024**4 };
+          buildCacheReclaimed = value * (multipliers[unit] || 1);
+        }
+        logger.info(`Build cache pruned, reclaimed ${(buildCacheReclaimed / 1024 / 1024).toFixed(2)} MB`);
+      } catch (buildError) {
+        // Build cache prune may fail if docker builder is not available
+        logger.debug(`Could not prune build cache: ${buildError.message}`);
+      }
+
+      const totalReclaimed = (result.SpaceReclaimed || 0) + buildCacheReclaimed;
+
       logger.info('Unused images pruned', {
         imagesDeleted: result.ImagesDeleted?.length || 0,
-        spaceReclaimed: result.SpaceReclaimed || 0,
+        spaceReclaimed: totalReclaimed,
       });
       return {
         ImagesDeleted: result.ImagesDeleted || [],
-        SpaceReclaimed: result.SpaceReclaimed || 0,
+        SpaceReclaimed: totalReclaimed,
+        BuildCacheReclaimed: buildCacheReclaimed,
       };
     } catch (error) {
       logger.error('Failed to prune images:', error);
