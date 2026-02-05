@@ -2,4 +2,4 @@
  * Central version constant for DockPilot
  * Update this when releasing a new version
  */
-export const DOCKPILOT_VERSION = '1.3.42';
+export const DOCKPILOT_VERSION = '1.3.43';

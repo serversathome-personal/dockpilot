@@ -575,9 +575,14 @@ class StackService {
         throw new Error('Stack not found');
       }
 
-      // Stop stack first
+      // Stop stack and remove containers/images
+      // Always use --rmi all to remove images used by this stack
+      // This prevents orphaned images that would still be checked for updates
       try {
-        const args = removeVolumes ? ['-v'] : [];
+        const args = ['--rmi', 'all'];
+        if (removeVolumes) {
+          args.push('-v');
+        }
         await this.executeComposeCommand(stackDir, 'down', args);
       } catch (error) {
         logger.warn(`Failed to stop stack before deletion: ${error.message}`);
