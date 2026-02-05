@@ -40,15 +40,32 @@ export default function ImagesView() {
       const containersList = containersData.data || [];
       setContainers(containersList);
 
-      // Build a map of image ID to containers
+      // Helper to normalize image IDs for comparison
+      // Strips sha256: prefix and gets consistent format
+      const normalizeId = (id) => {
+        if (!id) return '';
+        return id.replace(/^sha256:/i, '').toLowerCase();
+      };
+
+      // Build a map of normalized image ID to containers
+      // Use both full ID and short ID (12 chars) for matching
       const imageToContainers = {};
       containersList.forEach(container => {
         const imageId = container.imageId || container.ImageID;
         if (imageId) {
-          if (!imageToContainers[imageId]) {
-            imageToContainers[imageId] = [];
+          const normalizedId = normalizeId(imageId);
+          const shortId = normalizedId.substring(0, 12);
+
+          // Map both full and short IDs
+          if (!imageToContainers[normalizedId]) {
+            imageToContainers[normalizedId] = [];
           }
-          imageToContainers[imageId].push(container.name);
+          imageToContainers[normalizedId].push(container.name);
+
+          if (!imageToContainers[shortId]) {
+            imageToContainers[shortId] = [];
+          }
+          imageToContainers[shortId].push(container.name);
         }
       });
 
@@ -63,8 +80,10 @@ export default function ImagesView() {
           tag = parts[1] || 'latest';
         }
 
-        // Get containers using this image
-        const usingContainers = imageToContainers[image.id] || [];
+        // Get containers using this image - check both full and short IDs
+        const normalizedId = normalizeId(image.id);
+        const shortId = normalizedId.substring(0, 12);
+        const usingContainers = imageToContainers[normalizedId] || imageToContainers[shortId] || [];
 
         return {
           ...image,
@@ -230,13 +249,33 @@ export default function ImagesView() {
       label: 'Used By',
       sortable: true,
       render: (containers, image) => {
-        if (!containers || containers.length === 0) {
-          // Show "Unused" badge for tagged images with no containers
-          if (image.repository !== '<none>') {
+        const isDangling = image.repository === '<none>';
+        const hasContainers = containers && containers.length > 0;
+
+        if (!hasContainers) {
+          // Tagged image with no containers = Unused
+          if (!isDangling) {
             return <span className="text-xs px-2 py-0.5 rounded bg-warning/20 text-warning">Unused</span>;
           }
-          return <span className="text-slate-500">-</span>;
+          // Dangling with no containers = Safe to delete
+          return <span className="text-xs px-2 py-0.5 rounded bg-success/20 text-success">Safe to delete</span>;
         }
+
+        // Has containers - show them
+        // If dangling but in use, show warning
+        if (isDangling) {
+          return (
+            <div className="flex flex-col gap-0.5 max-w-[150px]">
+              <span className="text-xs px-2 py-0.5 rounded bg-danger/20 text-danger mb-1">In use - DO NOT delete</span>
+              {containers.map((name, idx) => (
+                <span key={idx} className="text-xs truncate" title={name}>
+                  {name}
+                </span>
+              ))}
+            </div>
+          );
+        }
+
         return (
           <div className="flex flex-col gap-0.5 max-w-[150px]">
             {containers.map((name, idx) => (
@@ -272,9 +311,18 @@ export default function ImagesView() {
 
   // Filter images based on filter and search
   const filteredImages = images.filter((img) => {
-    const isDangling = img.repository === '<none>';
-    const isUnused = !isDangling && (!img.containers || img.containers.length === 0);
-    const isActive = !isDangling && img.containers && img.containers.length > 0;
+    const hasTag = img.repository !== '<none>';
+    const hasContainers = img.containers && img.containers.length > 0;
+
+    // Categories:
+    // - active: Any image (tagged or not) with containers using it
+    // - unused: Tagged images with no containers
+    // - dangling: Untagged images (<none>) with no containers (truly safe to delete)
+    // - dangling_in_use: Untagged images still used by containers (NOT safe to delete)
+    const isActive = hasContainers;
+    const isUnused = hasTag && !hasContainers;
+    const isDanglingUnused = !hasTag && !hasContainers;  // Truly dangling - safe to delete
+    const isDanglingInUse = !hasTag && hasContainers;    // Dangling but in use - NOT safe
 
     // Apply image filter
     if (imageFilter === 'active' && !isActive) {
@@ -283,7 +331,7 @@ export default function ImagesView() {
     if (imageFilter === 'unused' && !isUnused) {
       return false;
     }
-    if (imageFilter === 'dangling' && !isDangling) {
+    if (imageFilter === 'dangling' && !isDanglingUnused) {
       return false;
     }
     // 'all' includes all images
@@ -301,9 +349,10 @@ export default function ImagesView() {
   });
 
   // Count images by category
-  const danglingCount = images.filter(img => img.repository === '<none>').length;
+  const activeCount = images.filter(img => img.containers && img.containers.length > 0).length;
   const unusedCount = images.filter(img => img.repository !== '<none>' && (!img.containers || img.containers.length === 0)).length;
-  const activeCount = images.filter(img => img.repository !== '<none>' && img.containers && img.containers.length > 0).length;
+  const danglingCount = images.filter(img => img.repository === '<none>' && (!img.containers || img.containers.length === 0)).length;
+  const danglingInUseCount = images.filter(img => img.repository === '<none>' && img.containers && img.containers.length > 0).length;
 
   // Calculate total size
   const totalSize = images.reduce((acc, img) => acc + (img.size || 0), 0);
@@ -381,9 +430,14 @@ export default function ImagesView() {
         >
           <option value="active">In use ({activeCount})</option>
           <option value="all">All images ({images.length})</option>
-          <option value="unused">Unused ({unusedCount})</option>
-          {danglingCount > 0 && <option value="dangling">Dangling ({danglingCount})</option>}
+          <option value="unused">Unused - no containers ({unusedCount})</option>
+          {danglingCount > 0 && <option value="dangling">Safe to delete ({danglingCount})</option>}
         </select>
+        {danglingInUseCount > 0 && (
+          <span className="text-xs text-danger bg-danger/10 px-2 py-1 rounded">
+            {danglingInUseCount} untagged image{danglingInUseCount > 1 ? 's' : ''} in use
+          </span>
+        )}
       </div>
 
       <Table
